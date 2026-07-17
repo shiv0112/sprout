@@ -42,7 +42,9 @@ import json
 import logging
 
 import requests
-from mistralai.client import Mistral
+from openai import OpenAI
+
+from .llm_providers import provider_chain
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +157,41 @@ Hard rules:
 """
 
 
+def _extract_text(response: object) -> str:
+    """Coerce an OpenAI-style chat response into a JSON-parseable string.
+
+    ``response.choices[0].message.content`` is normally a ``str``, but may be
+    ``None`` or a list of content chunks depending on the model/SDK. Also
+    strips ```json ... ``` fences some models add despite instructions.
+    """
+    content = response.choices[0].message.content  # type: ignore[attr-defined]
+    if content is None:
+        raw = ""
+    elif isinstance(content, str):
+        raw = content
+    elif isinstance(content, list):
+        parts: list[str] = []
+        for chunk in content:
+            text = getattr(chunk, "text", None)
+            if text is None and isinstance(chunk, dict):
+                text = chunk.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+        raw = "".join(parts)
+    else:
+        raw = str(content)
+
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw[3:]
+        if raw[:4].lower() == "json":
+            raw = raw[4:]
+        if raw.endswith("```"):
+            raw = raw[:-3]
+        raw = raw.strip()
+    return raw
+
+
 class KilnPlanner:
     """
     Phase 2: produces a task graph from a user request + Kiln registry tool list.
@@ -171,11 +208,18 @@ class KilnPlanner:
         self,
         registry_url: str = "http://localhost:8766",
         api_key: str = "",
-        model: str = "mistral-large-latest",
+        model: str | None = None,
     ):
         self._server_url = registry_url.rstrip("/")
-        self._client     = Mistral(api_key=api_key, timeout_ms=120_000)
-        self._model      = model
+        # NVIDIA NIM primary, Mistral fallback (both OpenAI-compatible).
+        self._providers  = provider_chain(mistral_api_key=api_key)
+        self._clients    = [
+            OpenAI(api_key=p["api_key"], base_url=p["base_url"], timeout=120.0)
+            for p in self._providers
+        ]
+        # Primary client/model kept as attributes for back-compat and tests.
+        self._client     = self._clients[0]
+        self._model      = model or self._providers[0]["model"]
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -217,8 +261,6 @@ class KilnPlanner:
             ) from None
 
     def _call_planner(self, user_request: str, tools: list[dict]) -> dict:
-        import time
-
         tool_summary = "\n".join(
             f"  - {t['id']} [{t.get('category', 'general')}] (tags: {', '.join(t.get('tags', []))}): {t['description'][:200]}"
             for t in tools
@@ -230,51 +272,11 @@ class KilnPlanner:
             "Produce the task graph JSON now."
         )
 
-        # Retry on rate limit (429) with exponential backoff
-        last_error = None
-        for attempt in range(3):
-            try:
-                response = self._client.chat.complete(
-                    model=self._model,
-                    # Mistral SDK accepts both dict literals and typed message
-                    # objects at runtime; dicts are simpler and avoid the
-                    # confusing multi-namespace message types in mistralai.
-                    messages=[  # type: ignore[arg-type]
-                        {"role": "system", "content": PLANNER_SYSTEM},
-                        {"role": "user", "content": user_msg},
-                    ],
-                    response_format={"type": "json_object"},
-                )
-                break
-            except Exception as exc:
-                last_error = exc
-                err_str = str(exc)
-                if "429" in err_str or "rate" in err_str.lower() or "capacity" in err_str.lower():
-                    wait = 2 ** attempt * 2  # 2s, 4s, 8s
-                    logger.warning("Mistral rate limited (attempt %d/3), retrying in %ds", attempt + 1, wait)
-                    time.sleep(wait)
-                    continue
-                raise  # non-retryable error
-        else:
-            raise last_error  # type: ignore[misc]
-
-        raw_content = response.choices[0].message.content
-        # Mistral SDK types content as `str | list[ContentChunk] | Unset | None`.
-        # Coerce to a single string we can json-parse.
-        if raw_content is None:
-            raw = ""
-        elif isinstance(raw_content, str):
-            raw = raw_content
-        elif isinstance(raw_content, list):
-            # Concatenate text from any TextChunk-like elements; ignore others.
-            parts: list[str] = []
-            for chunk in raw_content:
-                text = getattr(chunk, "text", None)
-                if isinstance(text, str):
-                    parts.append(text)
-            raw = "".join(parts)
-        else:
-            raw = str(raw_content)
+        messages = [
+            {"role": "system", "content": PLANNER_SYSTEM},
+            {"role": "user", "content": user_msg},
+        ]
+        raw = self._complete(messages)
 
         try:
             graph = json.loads(raw)
@@ -300,6 +302,52 @@ class KilnPlanner:
         graph["task"] = user_request
         graph = self._validate_graph(graph, user_request, tools)
         return graph
+
+    def _complete(self, messages: list[dict]) -> str:
+        """Call the LLM provider chain (NVIDIA NIM → Mistral) and return the
+        raw text content.
+
+        Each provider is retried on rate limits with exponential backoff; on a
+        non-retryable error or exhausted retries, we fall through to the next
+        provider. A provider that rejects ``response_format=json_object`` is
+        retried once without it (the prompt still asks for JSON).
+        """
+        import time
+
+        last_error: Exception | None = None
+        for provider, client in zip(self._providers, self._clients):
+            use_json_format = True
+            for attempt in range(3):
+                try:
+                    kwargs: dict = {"model": provider["model"], "messages": messages}
+                    if use_json_format:
+                        kwargs["response_format"] = {"type": "json_object"}
+                    response = client.chat.completions.create(**kwargs)  # type: ignore[arg-type]
+                    return _extract_text(response)
+                except Exception as exc:  # noqa: BLE001 — normalize across SDK error types
+                    last_error = exc
+                    err = str(exc).lower()
+                    if use_json_format and "response_format" in err:
+                        logger.warning(
+                            "%s rejected response_format=json_object; retrying without it",
+                            provider["name"],
+                        )
+                        use_json_format = False
+                        continue
+                    if ("429" in err or "rate" in err or "capacity" in err) and attempt < 2:
+                        wait = 2 ** attempt * 2  # 2s, 4s
+                        logger.warning(
+                            "%s rate limited (attempt %d/3), retrying in %ds",
+                            provider["name"], attempt + 1, wait,
+                        )
+                        time.sleep(wait)
+                        continue
+                    logger.warning(
+                        "planner provider %s failed (%s); falling back to next provider",
+                        provider["name"], exc,
+                    )
+                    break
+        raise last_error  # type: ignore[misc]
 
     def _validate_graph(self, graph: dict, user_request: str, tools: list[dict]) -> dict:
         """Validate and repair common planner output issues."""

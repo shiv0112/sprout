@@ -53,9 +53,10 @@ def planner(monkeypatch: pytest.MonkeyPatch) -> KilnPlanner:
 
 
 def _stub_complete(planner: KilnPlanner, content: object) -> None:
-    """Replace ``planner._client.chat.complete`` to return ``content``."""
+    """Replace the primary provider's ``chat.completions.create`` (OpenAI SDK
+    shape) to return ``content``."""
     response = _build_response(content)
-    planner._client.chat.complete = lambda **kwargs: response  # type: ignore[assignment]
+    planner._client.chat.completions.create = lambda **kwargs: response  # type: ignore[assignment,method-assign]
 
 
 def test_str_content_parses(planner: KilnPlanner) -> None:

@@ -42,6 +42,7 @@ from kiln_shared.rate_limit import get_limiter, kiln_rate_limit_exceeded_handler
 from kiln_shared.request_id import KilnRequestIDMiddleware
 
 from .graph_flow import KilnGraphFlow
+from .llm_providers import ag2_config_list
 from .planner import KilnPlanner
 
 logger = logging.getLogger(__name__)
@@ -949,13 +950,10 @@ def _launch_execution(run_id: str, graph: dict, extra_env: dict[str, str], api_k
                 active_graph = planner.plan(graph["task"], tools=tools_list)
                 q.put({"type": "plan_updated", **active_graph})
 
+            # NVIDIA NIM primary, Mistral fallback. AG2 tries each config_list
+            # entry in order and falls back to the next on failure/rate-limit.
             llm_config = {
-                "config_list": [{
-                    "model":    "mistral-large-latest",
-                    "api_key":  api_key,
-                    "api_type": "openai",
-                    "base_url": "https://api.mistral.ai/v1",
-                }],
+                "config_list": ag2_config_list(api_key),
                 "cache_seed": None,
             }
             flow = KilnGraphFlow(

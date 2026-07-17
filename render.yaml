@@ -53,15 +53,21 @@ services:
       - key: KILN_SYNTHESIS_CALLBACK_URL
         value: http://127.0.0.1:8766/synthesis/callback
 
-      # ── Secrets & deploy-specific config (set these in the dashboard) ──
+      # ── LLM providers: NVIDIA NIM primary, Mistral fallback ──
+      - key: NVIDIA_API_KEY
+        sync: false             # ← primary (NVIDIA NIM / GLM-5.2)
+      - key: MISTRAL_API_KEY
+        sync: false             # ← fallback + synthesis (Codestral)
+      - key: KILN_LLM_PRIMARY
+        value: nim              # "nim" or "mistral"
+      - key: KILN_NIM_MODEL
+        value: z-ai/glm-5.2     # must support OpenAI tool-calling
+
+      # ── Other secrets & deploy-specific config (set in the dashboard) ──
       - key: KILN_INTERNAL_SECRET
         generateValue: true     # Render generates a strong value
       - key: CORS_ORIGINS
         sync: false             # ← your Vercel URL(s), comma-separated
-      - key: MISTRAL_API_KEY
-        sync: false
-      - key: NVIDIA_API_KEY
-        sync: false
       - key: CLERK_DOMAIN
         sync: false
       - key: CLERK_SECRET_KEY

@@ -43,8 +43,8 @@ Files that make this work:
 3. Fill in the secrets marked `sync: false` under the service's **Environment**:
    | Var | Value |
    |---|---|
-   | `MISTRAL_API_KEY` | Mistral key (planning + synthesis) |
-   | `NVIDIA_API_KEY` | NVIDIA NIM key (synthesis) |
+   | `NVIDIA_API_KEY` | NVIDIA NIM key — **primary** for planning + agent execution (GLM-5.2) |
+   | `MISTRAL_API_KEY` | Mistral key — **fallback** for planning/execution + synthesis (Codestral) |
    | `CLERK_DOMAIN` | e.g. `your-app.clerk.accounts.dev` |
    | `CLERK_SECRET_KEY` | Clerk secret key |
    | `CORS_ORIGINS` | your Vercel URL, e.g. `https://kiln.vercel.app` (comma-sep for several) |
@@ -108,9 +108,17 @@ curl localhost:8080/registry/tools
 - **Database schema:** `KILN_DB_AUTO_CREATE=true` creates tables on boot. The
   production-grade alternative is to run `kiln-registry migrate` (Alembic) once —
   e.g. as a Render pre-deploy command — and set `KILN_DB_AUTO_CREATE=false`.
+- **LLM providers:** planning + agent execution use **NVIDIA NIM (GLM-5.2) as
+  primary and Mistral as fallback** — both OpenAI-compatible. If NVIDIA
+  rate-limits or errors, requests fall through to Mistral automatically (the
+  planner walks the chain with backoff; the AG2 executor uses a multi-entry
+  `config_list`). Tune with `KILN_LLM_PRIMARY`, `KILN_NIM_MODEL`,
+  `KILN_MISTRAL_MODEL`. The NIM model must support OpenAI **tool-calling**
+  (GLM-5.2 and Llama-3.3-70B do).
 - **Synthesis:** runs the OpenCode CLI (Node) as a subprocess — no Docker-in-Docker,
-  so it works on Render. It only functions with valid `MISTRAL_API_KEY` /
-  `NVIDIA_API_KEY`.
+  so it works on Render. Defaults to Mistral **Codestral** (code-specialized).
+  To move it off Mistral too, set `KILN_SYNTHESIS_OPENCODE_MODEL=nim/z-ai/glm-5.2`
+  (the `nim` provider is already defined in `opencode.json`).
 - **MCP OAuth:** the MCP endpoint is reachable at `https://<render-host>/mcp`.
   The OAuth issuer is auto-derived from `RENDER_EXTERNAL_URL` (+ `/mcp`), so the
   discovery/callback flow works out of the box. Override `KILN_MCP_ISSUER_URL`

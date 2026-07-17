@@ -22,6 +22,13 @@
 		respond "ok" 200
 	}
 
+	# Lightweight keep-alive endpoint. Answered directly by Caddy (no backend
+	# hit) but still counts as inbound traffic, so an external HEAD/GET ping
+	# every ~10-14 min keeps a Render free/idle instance from spinning down.
+	handle /ping {
+		respond 200
+	}
+
 	# chat_backend + synthesis stream Server-Sent Events — disable buffering.
 	handle_path /chat/* {
 		reverse_proxy 127.0.0.1:8765 {

@@ -1,0 +1,23 @@
+# Version control / local tooling
+.git
+.claude
+.agents
+
+# Secrets — never bake into an image
+.env
+.env.*
+!.env.example
+
+# Python caches / venvs
+**/__pycache__
+**/*.pyc
+.venv
+**/.venv
+
+# Node / Next.js (frontend deploys to Vercel, not in this image)
+**/node_modules
+**/.next
+**/dist
+
+# OS junk
+.DS_Store

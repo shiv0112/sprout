@@ -1,0 +1,82 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Render Blueprint — Kiln backend (all microservices in ONE service).
+#
+# Deploy:  Render Dashboard ▸ New ▸ Blueprint ▸ pick this repo. Render reads this
+# file, provisions Postgres + Key Value (Redis), and builds docker/Dockerfile.render.
+#
+# The frontend (packages/registry_ui) is NOT here — it deploys to Vercel.
+# See docs/DEPLOYMENT.md for the full walkthrough.
+#
+# NOTE on sizing: this single service runs 5 Python services + Node + Caddy.
+# The 512 MB free/starter instances are NOT enough — use `standard` (2 GB) or up.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  - type: web
+    name: kiln-backend
+    runtime: docker
+    repo: https://github.com/shiv0112/kiln
+    branch: main
+    dockerfilePath: ./docker/Dockerfile.render
+    dockerContext: .
+    plan: standard              # 2 GB RAM — required to fit all services
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: KILN_ENV
+        value: production
+
+      # ── Managed data stores (auto-wired by this blueprint) ──
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kiln-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: kiln-redis
+          property: connectionString
+      - key: KILN_DB_AUTO_CREATE
+        value: "true"           # auto-create schema; or run `kiln-registry migrate`
+
+      # ── Inter-service URLs — all local to this one container ──
+      - key: REGISTRY_URL
+        value: http://127.0.0.1:8766
+      - key: SYNTHESIS_URL
+        value: http://127.0.0.1:8002
+      - key: TOOL_EXECUTOR_URL
+        value: http://127.0.0.1:8767
+      - key: KILN_REGISTRY_URL
+        value: http://127.0.0.1:8766
+      - key: KILN_CALLBACK_URL
+        value: http://127.0.0.1:8766/synthesis/callback
+      - key: KILN_SYNTHESIS_CALLBACK_URL
+        value: http://127.0.0.1:8766/synthesis/callback
+
+      # ── Secrets & deploy-specific config (set these in the dashboard) ──
+      - key: KILN_INTERNAL_SECRET
+        generateValue: true     # Render generates a strong value
+      - key: CORS_ORIGINS
+        sync: false             # ← your Vercel URL(s), comma-separated
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: CLERK_DOMAIN
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: KILN_MCP_ISSUER_URL
+        sync: false             # ← https://<this-service-host>/mcp (after first deploy)
+
+  # Redis / Key Value — used by chat_backend's leader lock and rate limiting.
+  - type: keyvalue
+    name: kiln-redis
+    plan: free
+    region: oregon
+    ipAllowList: []             # internal-only (no public access)
+
+databases:
+  - name: kiln-postgres
+    plan: basic-256mb           # `free` also works for testing (expires in 30 days)
+    region: oregon

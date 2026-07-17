@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Kiln backend reverse proxy. Binds Render's $PORT and routes each path prefix
+# to the matching internal microservice. `handle_path` strips the prefix, so
+# e.g. an external GET /registry/tools reaches registry_api as GET /tools.
+#
+# Frontend (Vercel) points its base URLs at:
+#   NEXT_PUBLIC_REGISTRY_URL          = https://<render-host>/registry
+#   NEXT_PUBLIC_CHAT_BACKEND          = https://<render-host>/chat
+#   NEXT_PUBLIC_SYNTHESIS_SERVICE_URL = https://<render-host>/synthesis
+#   NEXT_PUBLIC_MCP_SERVER_URL        = https://<render-host>/mcp
+#   NEXT_PUBLIC_TOOL_EXECUTOR_URL     = https://<render-host>/executor
+# ─────────────────────────────────────────────────────────────────────────────
+{
+	admin off
+	# Render terminates TLS at the edge and forwards plain HTTP on $PORT.
+	auto_https off
+}
+
+:{$PORT:8080} {
+	# Dedicated health endpoint for Render's health check.
+	handle /health {
+		respond "ok" 200
+	}
+
+	# chat_backend + synthesis stream Server-Sent Events — disable buffering.
+	handle_path /chat/* {
+		reverse_proxy 127.0.0.1:8765 {
+			flush_interval -1
+		}
+	}
+	handle_path /synthesis/* {
+		reverse_proxy 127.0.0.1:8002 {
+			flush_interval -1
+		}
+	}
+
+	handle_path /registry/* {
+		reverse_proxy 127.0.0.1:8766
+	}
+	handle_path /mcp/* {
+		reverse_proxy 127.0.0.1:8768
+	}
+	handle_path /executor/* {
+		reverse_proxy 127.0.0.1:8767
+	}
+
+	# Anything else falls through to the registry API.
+	handle {
+		reverse_proxy 127.0.0.1:8766
+	}
+}

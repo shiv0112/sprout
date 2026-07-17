@@ -66,8 +66,9 @@ services:
         sync: false
       - key: CLERK_SECRET_KEY
         sync: false
-      - key: KILN_MCP_ISSUER_URL
-        sync: false             # ← https://<this-service-host>/mcp (after first deploy)
+      # KILN_MCP_ISSUER_URL is derived automatically from Render's injected
+      # RENDER_EXTERNAL_URL (+ /mcp) — see kiln_mcp/main.py:_resolve_issuer_url.
+      # Set it only to override (e.g. a custom domain).
 
   # Redis / Key Value — used by chat_backend's leader lock and rate limiting.
   - type: keyvalue

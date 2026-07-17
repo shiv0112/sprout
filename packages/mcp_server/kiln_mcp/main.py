@@ -56,7 +56,28 @@ _mcp_auth_routes.validate_issuer_url = _patched_validate_issuer_url
 
 REGISTRY_URL = _required_url("KILN_REGISTRY_URL", "http://localhost:8766")
 POLL_INTERVAL = int(os.environ.get("KILN_MCP_POLL_INTERVAL", "30"))
-ISSUER_URL = _required_url("KILN_MCP_ISSUER_URL", "http://localhost:8768")
+
+
+def _resolve_issuer_url() -> str:
+    """Public OAuth issuer URL for the MCP server.
+
+    An explicit ``KILN_MCP_ISSUER_URL`` always wins. Otherwise, when running
+    on Render, derive it from the platform-injected ``RENDER_EXTERNAL_URL``
+    plus the ``/mcp`` path prefix that the Caddy reverse proxy routes on
+    (see docker/render/Caddyfile) — so the issuer needs no manual per-deploy
+    config. Falls back to the localhost dev default (or fails fast in prod
+    when neither is set), exactly as before.
+    """
+    explicit = os.environ.get("KILN_MCP_ISSUER_URL")
+    if explicit:
+        return explicit
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url:
+        return f"{render_url.rstrip('/')}/mcp"
+    return _required_url("KILN_MCP_ISSUER_URL", "http://localhost:8768")
+
+
+ISSUER_URL = _resolve_issuer_url()
 CLERK_DOMAIN = os.environ.get("CLERK_DOMAIN", "").strip()
 
 _oauth_store = InMemoryOAuthStore()

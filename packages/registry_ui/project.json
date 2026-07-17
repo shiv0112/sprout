@@ -1,0 +1,18 @@
+{
+  "name": "registry-ui",
+  "root": "packages/registry_ui",
+  "targets": {
+    "dev": {
+      "command": "npm run dev",
+      "options": { "cwd": "packages/registry_ui" }
+    },
+    "build": {
+      "command": "npm run build",
+      "options": { "cwd": "packages/registry_ui" }
+    },
+    "lint": {
+      "command": "npm run lint",
+      "options": { "cwd": "packages/registry_ui" }
+    }
+  }
+}

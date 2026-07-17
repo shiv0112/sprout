@@ -1,0 +1,12 @@
+{
+  "name": "shared",
+  "root": "packages/shared",
+  "targets": {
+    "lint": {
+      "command": "uv run ruff check packages/shared"
+    },
+    "test": {
+      "command": "uv run pytest packages/shared -v"
+    }
+  }
+}

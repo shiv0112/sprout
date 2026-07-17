@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kiln.com/spec/1.0/tool.schema.json",
+  "title": "KilnToolSpec",
+  "description": "Schema for a Kiln tool specification file (spec.yaml). This is the contract that the synthesis service must produce and KilnLoader validates before registering a tool.",
+  "type": "object",
+  "required": ["kiln_version", "tool", "interface", "implementation"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "kiln_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Version of the Kiln spec format, e.g. '1.0'"
+    },
+
+    "tool": {
+      "type": "object",
+      "description": "Identity and ownership of the tool.",
+      "required": ["id", "name", "version", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9_]*)+$",
+          "description": "Reverse-domain unique ID, e.g. com.kiln.tools.weather"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Python function name. Must match the function in the entrypoint file."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version, e.g. 1.0.0"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Clear description shown to the LLM. Be specific."
+        },
+        "author":  { "type": "string" },
+        "license": { "type": "string" }
+      }
+    },
+
+    "interface": {
+      "type": "object",
+      "description": "The tool's input/output contract. This is what the LLM sees.",
+      "required": ["inputs", "outputs"],
+      "additionalProperties": false,
+      "properties": {
+
+        "inputs": {
+          "type": "array",
+          "description": "List of input parameters.",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "name":        { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+              "type":        { "type": "string", "enum": ["string", "integer", "number", "boolean", "array", "object"] },
+              "required":    { "type": "boolean" },
+              "description": { "type": "string" },
+              "default":     {},
+              "enum":        { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+
+        "outputs": {
+          "type": "array",
+          "description": "List of keys the tool guarantees to return.",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "name":        { "type": "string" },
+              "type":        { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "implementation": {
+      "type": "object",
+      "description": "Where the code lives and how to run it.",
+      "required": ["runtime", "entrypoint"],
+      "additionalProperties": false,
+      "properties": {
+        "runtime":      { "type": "string", "description": "e.g. python3.10" },
+        "entrypoint":   { "type": "string", "pattern": "\\.py$", "description": "Filename of the Python implementation, e.g. weather.py" },
+        "dependencies": { "type": "array", "items": { "type": "string" }, "description": "pip packages required, e.g. requests>=2.28.0" },
+        "required_env_vars": {
+          "type": "array",
+          "description": "Env var names the tool is permitted to read. The sandbox injects ONLY these names (intersected with the invoking user's saved vars); anything else is absent from os.environ at runtime. Each entry must be on the Kiln provider allowlist.",
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+          "uniqueItems": true,
+          "default": []
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "timeout": { "type": "string", "description": "e.g. 5000ms" },
+            "retries": { "type": "integer", "minimum": 0 },
+            "async":   { "type": "boolean" }
+          }
+        }
+      }
+    },
+
+    "targets": {
+      "type": "array",
+      "description": "Frameworks this tool should be compiled for.",
+      "items": {
+        "type": "string",
+        "enum": ["ag2", "langchain", "pydantic_ai", "mistral", "raw_python"]
+      }
+    },
+
+    "testing": {
+      "type": "object",
+      "description": "Test fixtures run by KilnLoader before registration. The synthesis service must pass all fixtures before publishing.",
+      "additionalProperties": false,
+      "properties": {
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["input", "expected_output_contains"],
+            "additionalProperties": false,
+            "properties": {
+              "input": {
+                "type": "object",
+                "description": "Keyword arguments passed to the tool function."
+              },
+              "expected_output_contains": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Keys that must be present in the returned dict."
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "description": "Optional provenance information.",
+      "additionalProperties": true,
+      "properties": {
+        "tags":                 { "type": "array", "items": { "type": "string" } },
+        "category":             { "type": "string" },
+        "generated_by":         { "type": "string", "description": "e.g. mistral_vibe or human" },
+        "generation_timestamp": { "type": "string" }
+      }
+    }
+
+  }
+}

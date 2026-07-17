@@ -1,0 +1,15 @@
+{
+  "name": "mcp-server",
+  "root": "packages/mcp_server",
+  "targets": {
+    "dev": {
+      "command": "uv run python -m kiln_mcp.main streamable-http"
+    },
+    "dev:stdio": {
+      "command": "uv run python -m kiln_mcp.main stdio"
+    },
+    "lint": {
+      "command": "uv run ruff check packages/mcp_server"
+    }
+  }
+}

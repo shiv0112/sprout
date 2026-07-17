@@ -1,0 +1,21 @@
+[project]
+name = "kiln-mcp-server"
+version = "1.0.0"
+description = "Kiln MCP Server - bridges MCP JSON-RPC to the Registry API"
+requires-python = ">=3.12"
+dependencies = [
+    "kiln-shared[server]>=1.0.0",
+    "mcp>=1.0.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kiln_mcp"]
+
+[tool.uv.sources]
+kiln-shared = { workspace = true }

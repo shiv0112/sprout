@@ -1,0 +1,56 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Sanity-check that PYPI_API_TOKEN is set
+        env:
+          TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [[ -z "$TOKEN" ]]; then
+            echo "::error::PYPI_API_TOKEN is not set on this repo."
+            echo "::error::Go to Settings → Secrets and variables → Actions → New repository secret,"
+            echo "::error::name it exactly PYPI_API_TOKEN, and paste a token minted at https://pypi.org/manage/account/token/"
+            exit 1
+          fi
+
+      - name: Build kiln-shared
+        run: uv build --package kiln-shared
+
+      - name: Build kiln-registry-api
+        run: uv build --package kiln-registry-api
+
+      - name: Validate metadata
+        run: uvx twine check dist/*
+
+      - name: Publish kiln-shared (wheel + sdist)
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        # Enable nullglob + globstar + fail-on-no-match so a missing wheel
+        # or sdist fails loudly instead of silently skipping. Explicitly
+        # list both the .whl and .tar.gz globs so it's obvious we want
+        # BOTH artefacts uploaded to PyPI, not just the wheel.
+        run: |
+          shopt -s failglob
+          uv publish dist/kiln_shared-*.whl dist/kiln_shared-*.tar.gz
+
+      - name: Publish kiln-registry-api (wheel + sdist)
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          shopt -s failglob
+          uv publish dist/kiln_registry_api-*.whl dist/kiln_registry_api-*.tar.gz

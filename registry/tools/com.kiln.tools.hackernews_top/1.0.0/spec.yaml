@@ -1,0 +1,46 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.hackernews_top
+  name: hackernews_top
+  version: 1.0.0
+  description: "Fetch hydrated top / new / best / ask / show / job stories from Hacker News, including scores, authors, and comment counts. Uses the public Firebase API — no key required."
+  author: kiln
+
+interface:
+  inputs:
+    - name: feed
+      type: string
+      description: "Which HN feed to pull."
+      required: false
+      default: "top"
+      enum: ["top", "new", "best", "ask", "show", "job"]
+    - name: limit
+      type: integer
+      description: "1-50 stories."
+      required: false
+      default: 10
+  outputs:
+    - name: success
+      type: boolean
+    - name: feed
+      type: string
+    - name: stories
+      type: array
+
+implementation:
+  runtime: python3.10
+  entrypoint: hackernews_top.py
+  dependencies:
+    - requests>=2.28.0
+
+testing:
+  fixtures:
+    - input:
+        feed: "top"
+        limit: 5
+      expected_output_contains: [success, feed, stories]
+
+metadata:
+  tags: [news, hackernews, trends, no-api-key]
+  category: data

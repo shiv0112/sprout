@@ -1,0 +1,49 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.arxiv_fetcher
+  name: arxiv_fetcher
+  version: 1.0.0
+  description: Fetch the latest research papers from arXiv based on a query, including metadata such as title, authors, abstract, and publication date.
+  author: vibe_tool
+
+interface:
+  inputs:
+    - name: query
+      type: string
+      description: Search query for arXiv papers (e.g., 'artificial intelligence')
+      required: true
+    - name: max_results
+      type: integer
+      description: Maximum number of papers to fetch
+      required: false
+      default: 10
+    - name: sort_by
+      type: string
+      description: Sort results by 'relevance' or 'submittedDate'
+      required: false
+      default: submittedDate
+      enum: [relevance, submittedDate]
+  outputs:
+    - name: papers
+      type: array
+      description: List of papers, each containing metadata
+
+implementation:
+  runtime: python3.10
+  entrypoint: impl.py
+  dependencies: []
+
+testing:
+  fixtures:
+    - input:
+        query: test
+        max_results: 1
+        sort_by: submittedDate
+      expected_output_contains:
+        - papers
+
+metadata:
+  tags: [synthesized]
+  category: general
+  generated_by: vibe_tool

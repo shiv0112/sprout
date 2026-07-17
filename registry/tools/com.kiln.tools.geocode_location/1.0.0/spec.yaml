@@ -1,0 +1,57 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.geocode_location
+  name: geocode_location
+  version: 1.0.0
+  description: "Forward and reverse geocoding via OpenStreetMap Nominatim. Resolve a place name to coordinates, or coordinates to a street address. No API key required."
+  author: kiln
+
+interface:
+  inputs:
+    - name: query
+      type: string
+      description: "Address or place name for forward geocoding."
+      required: false
+    - name: lat
+      type: number
+      description: "Latitude for reverse geocoding."
+      required: false
+    - name: lon
+      type: number
+      description: "Longitude for reverse geocoding."
+      required: false
+    - name: limit
+      type: integer
+      description: "Max forward-geocode matches (1-10)."
+      required: false
+      default: 5
+  outputs:
+    - name: success
+      type: boolean
+    - name: mode
+      type: string
+    - name: lat
+      type: number
+    - name: lon
+      type: number
+    - name: address
+      type: string
+    - name: matches
+      type: array
+
+implementation:
+  runtime: python3.10
+  entrypoint: geocode_location.py
+  dependencies:
+    - requests>=2.28.0
+
+testing:
+  fixtures:
+    - input:
+        query: "Eiffel Tower, Paris"
+      expected_output_contains: [success, lat, lon, address]
+
+metadata:
+  tags: [geocoding, maps, osm, no-api-key]
+  category: data

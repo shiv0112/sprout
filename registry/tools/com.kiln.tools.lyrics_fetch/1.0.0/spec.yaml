@@ -1,0 +1,50 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.lyrics_fetch
+  name: lyrics_fetch
+  version: 1.0.0
+  description: "Fetch the full lyrics of a song by artist + title via lyrics.ovh, plus album artwork, genre, release date, and a 30-second preview from iTunes Search. No API key required."
+  author: kiln
+
+interface:
+  inputs:
+    - name: artist
+      type: string
+      description: "Performing artist (e.g. 'Queen')."
+      required: true
+    - name: title
+      type: string
+      description: "Song title (e.g. 'Bohemian Rhapsody')."
+      required: true
+    - name: include_artwork
+      type: boolean
+      description: "Also fetch album artwork and a preview clip."
+      required: false
+      default: true
+  outputs:
+    - name: success
+      type: boolean
+    - name: lyrics
+      type: string
+    - name: artwork_url
+      type: string
+    - name: preview_url
+      type: string
+
+implementation:
+  runtime: python3.10
+  entrypoint: lyrics_fetch.py
+  dependencies:
+    - requests>=2.28.0
+
+testing:
+  fixtures:
+    - input:
+        artist: "Queen"
+        title: "Bohemian Rhapsody"
+      expected_output_contains: [success, artist, title, lyrics]
+
+metadata:
+  tags: [music, lyrics, creative, no-api-key]
+  category: media

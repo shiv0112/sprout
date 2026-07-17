@@ -1,0 +1,67 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.satellite_image
+  name: satellite_image
+  version: 1.0.0
+  description: "Produce a stitched static satellite, street, or topographic map image for any place. Auto-geocodes location names. Returns a PNG as base64 and a file path. No API key required."
+  author: kiln
+
+interface:
+  inputs:
+    - name: location
+      type: string
+      description: "Place name (auto-geocoded if lat/lon are omitted)."
+      required: false
+    - name: lat
+      type: number
+      required: false
+    - name: lon
+      type: number
+      required: false
+    - name: zoom
+      type: integer
+      description: "Zoom level 1-19."
+      required: false
+      default: 15
+    - name: style
+      type: string
+      description: "'satellite', 'street', or 'topo'."
+      required: false
+      default: "satellite"
+      enum: ["satellite", "street", "topo"]
+    - name: tiles
+      type: integer
+      description: "Grid size per side (1, 3, or 5)."
+      required: false
+      default: 3
+  outputs:
+    - name: success
+      type: boolean
+    - name: location
+      type: string
+    - name: data_url
+      type: string
+    - name: file_path
+      type: string
+
+implementation:
+  runtime: python3.10
+  entrypoint: satellite_image.py
+  dependencies:
+    - requests>=2.28.0
+    - Pillow>=9.0
+  execution:
+    timeout: "45000ms"
+
+testing:
+  fixtures:
+    - input:
+        location: "Marina Bay Sands, Singapore"
+        zoom: 16
+        tiles: 3
+      expected_output_contains: [success, data_url, file_path, location]
+
+metadata:
+  tags: [maps, satellite, visualization, image, no-api-key]
+  category: media

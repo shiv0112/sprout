@@ -1,0 +1,66 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.image_generate
+  name: image_generate
+  version: 1.0.0
+  description: "Generate an AI image from a text prompt using the Pollinations.ai Flux model. Returns a base64 data URL, a saved PNG path, and the original URL. Fully free — no API key required."
+  author: kiln
+
+interface:
+  inputs:
+    - name: prompt
+      type: string
+      description: "Descriptive text prompt."
+      required: true
+    - name: width
+      type: integer
+      description: "Width in pixels (256-2048)."
+      required: false
+      default: 1024
+    - name: height
+      type: integer
+      description: "Height in pixels (256-2048)."
+      required: false
+      default: 1024
+    - name: model
+      type: string
+      description: "Style model."
+      required: false
+      default: "flux"
+      enum: ["flux", "flux-realism", "flux-anime", "flux-3d", "turbo", "any-dark"]
+    - name: seed
+      type: integer
+      description: "Random seed for reproducible generations."
+      required: false
+  outputs:
+    - name: success
+      type: boolean
+    - name: data_url
+      type: string
+    - name: url
+      type: string
+    - name: file_path
+      type: string
+    - name: seed
+      type: integer
+
+implementation:
+  runtime: python3.10
+  entrypoint: image_generate.py
+  dependencies:
+    - requests>=2.28.0
+  execution:
+    timeout: "90000ms"
+
+testing:
+  fixtures:
+    - input:
+        prompt: "a studio ghibli scene of a cozy cabin in a snowy forest at dusk"
+        width: 768
+        height: 768
+      expected_output_contains: [success, data_url, url, seed]
+
+metadata:
+  tags: [ai, image-generation, creative, flagship, no-api-key]
+  category: creative

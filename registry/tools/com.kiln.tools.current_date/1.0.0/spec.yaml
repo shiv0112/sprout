@@ -1,0 +1,53 @@
+kiln_version: "1.0"
+
+tool:
+  id: com.kiln.tools.current_date
+  name: current_date
+  version: 1.0.0
+  description: "Return the current date/time in any IANA timezone and strftime (or friendly YYYY-MM-DD) format. Uses the system clock — no network, no API key."
+  author: kiln
+
+interface:
+  inputs:
+    - name: format
+      type: string
+      description: "strftime format, or friendly tokens YYYY MM DD HH mm ss. Omit for ISO-8601."
+      required: false
+    - name: tz
+      type: string
+      description: "IANA timezone name (e.g. 'Asia/Singapore', 'America/New_York'). Defaults to UTC."
+      required: false
+      default: "UTC"
+  outputs:
+    - name: date
+      type: string
+      description: Formatted date string.
+    - name: timestamp
+      type: integer
+      description: Unix timestamp (seconds).
+    - name: iso
+      type: string
+    - name: timezone
+      type: string
+    - name: weekday
+      type: string
+    - name: success
+      type: boolean
+
+implementation:
+  runtime: python3.10
+  entrypoint: impl.py
+  dependencies: []
+
+testing:
+  fixtures:
+    - input: {}
+      expected_output_contains: [date, timestamp, iso, success]
+    - input:
+        format: "YYYY-MM-DD"
+        tz: "Asia/Singapore"
+      expected_output_contains: [date, timezone, success]
+
+metadata:
+  tags: [utility, datetime, offline]
+  category: utility

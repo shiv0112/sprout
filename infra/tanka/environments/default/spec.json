@@ -1,0 +1,13 @@
+{
+  "apiVersion": "tanka.dev/v1alpha1",
+  "kind": "Environment",
+  "metadata": {
+    "name": "environments/default"
+  },
+  "spec": {
+    "contextNames": ["gke_peaceful-basis-329822_asia-southeast1-a_kiln-dev-gke"],
+    "namespace": "kiln",
+    "resourceDefaults": {},
+    "expectVersions": {}
+  }
+}

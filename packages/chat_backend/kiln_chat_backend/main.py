@@ -1,0 +1,1025 @@
+"""
+kiln_chat_backend/main.py
+─────────────────────────
+KilnChatBackend — FastAPI app for Kiln chat/execution endpoints.
+
+Exposes the Kiln planner and graph-flow executor as HTTP endpoints:
+  POST /kiln/start                → plan graph, detect missing env vars
+  POST /kiln/execute/{run_id}     → start execution after supplying env vars
+  GET  /kiln/stream/{run_id}      → SSE stream of Kiln execution events
+"""
+
+from __future__ import annotations
+
+import asyncio
+import importlib.util
+import json
+import logging
+import os
+import re
+import threading
+import uuid
+from contextlib import asynccontextmanager
+from pathlib import Path
+from queue import Empty, Queue
+from typing import Any
+
+import httpx
+import requests
+import yaml
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
+from slowapi.errors import RateLimitExceeded
+
+from kiln_shared.auth import KilnUser, require_auth
+from kiln_shared.cors import install_cors
+from kiln_shared.env import required_url as _required_url
+from kiln_shared.httpx_client import async_client
+from kiln_shared.metrics import mount_metrics
+from kiln_shared.rate_limit import get_limiter, kiln_rate_limit_exceeded_handler
+from kiln_shared.request_id import KilnRequestIDMiddleware
+
+from .graph_flow import KilnGraphFlow
+from .planner import KilnPlanner
+
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+REGISTRY_DIR          = Path(__file__).parent.parent.parent.parent / "registry" / "tools"
+REGISTRY_URL          = _required_url("REGISTRY_URL", "http://localhost:8766")
+SYNTHESIS_URL         = _required_url("SYNTHESIS_URL", "http://localhost:8002")
+KILN_CALLBACK_URL     = _required_url("KILN_CALLBACK_URL", "http://host.docker.internal:8766/synthesis/callback")
+
+app = FastAPI(
+    title="KilnChatBackend",
+    description=(
+        "Kiln chat backend service. "
+        "Provides planning, execution and streaming endpoints for the Kiln multi-agent workflow."
+    ),
+    version="1.0.0",
+    lifespan=None,
+)
+
+# Per-user rate limiting (slowapi). Default 1000/minute per user/IP via
+# `KILN_RATE_LIMIT_DEFAULT`; specific routes can tighten further with
+# `@limiter.limit(...)` decorators.
+limiter = get_limiter()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, kiln_rate_limit_exceeded_handler)
+
+# Per-request correlation ID — must come before CORS so it's set on
+# every response including OPTIONS preflight and SSE streams.
+app.add_middleware(KilnRequestIDMiddleware)
+
+# CORS: strict allowlist + fail-loud in production if CORS_ORIGINS is unset.
+install_cors(app)
+
+mount_metrics(app, "chat_backend")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    from kiln_shared.logging_config import setup_logging
+
+    from .leader_lock import leader_lock_context
+    setup_logging()
+    async with leader_lock_context():
+        yield
+
+
+app.router.lifespan_context = _lifespan
+
+
+@app.get("/livez", summary="Liveness — process is up")
+def livez():
+    """Cheap liveness probe. Returns 200 as long as the process is alive.
+
+    Used by orchestrators to decide whether to RESTART the container — must
+    NOT call out to dependencies, otherwise a slow registry would cause us
+    to be killed and restarted.
+    """
+    return {"status": "ok", "service": "kiln-chat-backend"}
+
+
+@app.get("/readyz", summary="Readiness — downstream dependencies reachable")
+async def readyz():
+    """Real readiness probe. Pings the registry_api (and synthesis if set).
+
+    Returns 200 only when the chat backend can actually serve a run. The
+    chat backend cannot plan a graph without the registry's tool list, so
+    REGISTRY_URL being unreachable is a hard failure that returns 503.
+    The synthesis URL is checked but treated as optional — synthesis is
+    only needed when the planner declares missing tools.
+    """
+    checks: dict[str, str] = {}
+    overall = "ok"
+
+    # Registry: hard dependency. Without /tools the planner has nothing to
+    # work with and every run will fail. Use the request-id-aware client so
+    # the readyz hop is correlated with the original request.
+    try:
+        async with async_client(timeout=2.0) as client:
+            resp = await client.get(f"{REGISTRY_URL}/livez")
+            if resp.status_code == 200:
+                checks["registry_api"] = "ok"
+            else:
+                checks["registry_api"] = f"unhealthy: HTTP {resp.status_code}"
+                overall = "degraded"
+    except Exception as exc:
+        checks["registry_api"] = f"unreachable: {exc!s}"
+        overall = "degraded"
+
+    # Synthesis: soft dependency. Note status but don't fail readyz on it.
+    try:
+        async with async_client(timeout=2.0) as client:
+            resp = await client.get(f"{SYNTHESIS_URL}/health")
+            if resp.status_code == 200:
+                checks["synthesis_service"] = "ok"
+            else:
+                checks["synthesis_service"] = f"degraded: HTTP {resp.status_code} (synthesis is optional)"
+    except Exception as exc:
+        checks["synthesis_service"] = f"unreachable: {exc!s} (synthesis is optional)"
+
+    body = {
+        "status": overall,
+        "service": "kiln-chat-backend",
+        "active_runs": len(_run_queues),
+        "checks": checks,
+    }
+    if overall != "ok":
+        return JSONResponse(status_code=503, content=body)
+    return body
+
+
+@app.get("/health", summary="Combined health: live + ready (legacy compat)")
+async def health():
+    """Combined health endpoint kept for backwards compatibility.
+
+    New deployments should use /livez and /readyz. This route runs the
+    readiness checks AND keeps the legacy ``active_runs`` field that
+    existing UI code asserts against.
+    """
+    ready = await readyz()
+    if isinstance(ready, JSONResponse):
+        # Propagate the 503 — body already contains active_runs.
+        return ready
+    return ready
+
+
+# ── Trivial-message fast path ─────────────────────────────────────────────────
+#
+# Routing every chat through Mistral planning + AG2 execution is wasteful and
+# noisy for messages like "hi" or "thanks" — the user sees a multi-step
+# "Plan: GreetingAgent → greeting starting → greeting done" preamble for what
+# should be a one-line response. Detect those messages here, return a canned
+# answer immediately, skip the planner and the multi-agent flow entirely.
+
+_TRIVIAL_RESPONSES: dict[str, str] = {
+    "hi": "Hi! I'm Kiln. Ask me anything — I can plan multi-step tasks across the registered tools, and synthesise new ones if I'm missing something.",
+    "hello": "Hello! I'm Kiln. What would you like to do?",
+    "hey": "Hey! What can I help you with?",
+    "yo": "Hey! What's up?",
+    "sup": "Not much. What do you want to build?",
+    "howdy": "Howdy! What can I do for you?",
+    "thanks": "You're welcome! Anything else?",
+    "thank you": "You're welcome! Anything else?",
+    "ty": "You're welcome!",
+    "ok": "Got it. Anything else?",
+    "okay": "Got it. Anything else?",
+    "k": "Got it.",
+    "got it": "👍",
+    "cool": "Anything else I can help with?",
+    "nice": "Glad it helped. Anything else?",
+    "bye": "See you later!",
+    "goodbye": "See you later!",
+    "cya": "Later!",
+    "test": "Got the test message. Kiln chat backend is up — try asking me to do something real, like 'what is the current date' or 'convert 100 USD to EUR'.",
+    "ping": "pong",
+}
+
+_TRIVIAL_PUNCT = re.compile(r"[!\.\?,\s]+$")
+
+
+def _trivial_response(user_request: str) -> str | None:
+    """Return a canned response if the input is a known trivial message.
+
+    Matches case-insensitively after stripping trailing punctuation/whitespace.
+    Only fires for short inputs (≤30 chars) so a longer message that happens
+    to start with "hi" still goes through the real planner.
+    """
+    text = user_request.strip()
+    if not text or len(text) > 30:
+        return None
+    normalised = _TRIVIAL_PUNCT.sub("", text.lower())
+    return _TRIVIAL_RESPONSES.get(normalised)
+
+
+# ── Kiln run state (thread-safe via lock) ─────────────────────────────────────
+_run_lock = threading.Lock()
+# run_id → Queue of event dicts; None sentinel = stream finished
+_run_queues: dict[str, Queue] = {}
+# run_id → planned task graph (stored between /kiln/start and /kiln/execute)
+_run_plans:  dict[str, dict]  = {}
+# run_id → tool IDs being synthesised (so execution thread can wait for them)
+_run_awaited_tools: dict[str, list[str]] = {}
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _tool_to_dict(tool) -> dict:
+    """Convert a tool object to a JSON-serialisable summary dict."""
+    s = tool.spec
+    return {
+        "id":          s.id,
+        "name":        s.name,
+        "version":     s.version,
+        "description": s.description,
+        "author":      s.author,
+        "category":    s.category,
+        "tags":        s.tags,
+        "params": [
+            {
+                "name":        p.name,
+                "type":        p.type,
+                "description": p.description,
+                "required":    p.required,
+                "default":     p.default,
+                "enum":        p.enum,
+            }
+            for p in s.params
+        ],
+    }
+
+
+def _tool_def(tool) -> dict:
+    """
+    Build the LLM-ready tool definition (OpenAI / Mistral compatible JSON schema).
+    Agents can pass this directly to their LLM tool_choice parameter.
+    """
+    s = tool.spec
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    _TYPE_TO_JSON = {
+        "str": "string", "int": "integer", "float": "number",
+        "bool": "boolean", "list": "array", "dict": "object",
+    }
+
+    for p in s.params:
+        prop: dict[str, Any] = {
+            "type":        _TYPE_TO_JSON.get(p.type, "string"),
+            "description": p.description or "",
+        }
+        if p.enum:
+            prop["enum"] = p.enum
+        if p.default is not None:
+            prop["default"] = p.default
+        properties[p.name] = prop
+        if p.required:
+            required.append(p.name)
+
+    return {
+        "type": "function",
+        "function": {
+            "name":        s.name,
+            "description": s.description,
+            "parameters": {
+                "type":       "object",
+                "properties": properties,
+                "required":   required,
+            },
+        },
+    }
+
+
+async def _fetch_user_tool_env_vars(user_id: str) -> dict[str, str]:
+    """Fetch the user's saved tool env vars from Clerk private_metadata."""
+    clerk_secret = os.environ.get("CLERK_SECRET_KEY", "").strip()
+    if not clerk_secret:
+        return {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"https://api.clerk.com/v1/users/{user_id}",
+                headers={"Authorization": f"Bearer {clerk_secret}"},
+            )
+            resp.raise_for_status()
+            user_data = resp.json()
+        return user_data.get("private_metadata", {}).get("tool_env_vars", {})
+    except Exception:
+        logger.warning("Failed to fetch user tool env vars for %s", user_id)
+        return {}
+
+
+def _collect_missing_envs(graph: dict, provided: dict[str, str]) -> list[dict]:
+    """
+    For each tool referenced in the task graph, check whether its
+    REQUIRED_ENV_VARS are present in os.environ or in the provided dict.
+    Returns a deduplicated list of missing var descriptors.
+    """
+    seen:   set[str]   = set()
+    missing: list[dict] = []
+
+    for node in graph.get("nodes", []):
+        for tool_id in node.get("tools", []):
+            tool_dir = REGISTRY_DIR / tool_id
+            if not tool_dir.exists():
+                logger.warning("_collect_missing_envs: tool dir not found: %s", tool_dir)
+                continue
+            # Pick the latest version directory
+            impl_file = None
+            for ver_dir in sorted(tool_dir.iterdir()):
+                spec_path = ver_dir / "spec.yaml"
+                if not spec_path.exists():
+                    continue
+                raw = yaml.safe_load(spec_path.read_text())
+                entrypoint = raw.get("implementation", {}).get("entrypoint", "")
+                candidate = ver_dir / entrypoint
+                if candidate.exists():
+                    impl_file = candidate
+                    break
+
+            if impl_file is None:
+                logger.warning("_collect_missing_envs: no impl file found for %s", tool_id)
+                continue
+
+            # Dynamically load the module to read REQUIRED_ENV_VARS
+            try:
+                spec = importlib.util.spec_from_file_location("_tmp", impl_file)
+                if spec is None or spec.loader is None:
+                    logger.warning("_collect_missing_envs: importlib could not create spec for %s", impl_file)
+                    continue
+                mod  = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                required = getattr(mod, "REQUIRED_ENV_VARS", [])
+            except Exception as exc:
+                logger.warning("_collect_missing_envs: failed to load %s: %s", impl_file, exc)
+                continue
+
+            for ev in required:
+                name = ev.get("name", "")
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                saved_value = (os.environ.get(name, "") or provided.get(name, "")).strip()
+                if len(saved_value) >= 4:
+                    continue
+                entry: dict[str, Any] = {
+                    "tool_id":     tool_id,
+                    "var_name":    name,
+                    "description": ev.get("description", ""),
+                }
+                if ev.get("signup_url"):
+                    entry["signup_url"] = ev["signup_url"]
+                missing.append(entry)
+
+    logger.info("_collect_missing_envs: checked %d tools, found %d missing env vars", len(seen), len(missing))
+    return missing
+
+
+def _research_api(tool_description: str, api_key: str) -> str:
+    """
+    Ask Mistral to recommend the best free/open API for a given tool description.
+    Returns a short constraints string that is injected into the synthesis request.
+    Falls back to an empty string if the call fails.
+    """
+    try:
+        from mistralai.client import Mistral
+
+        client = Mistral(api_key=api_key)
+        resp = client.chat.complete(
+            model="mistral-small-latest",
+            # Mistral SDK accepts dict literals at runtime; they avoid the
+            # confusing multi-namespace message types in mistralai.
+            messages=[  # type: ignore[arg-type]
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an API research assistant. "
+                        "Given a tool description, recommend the single best free/open HTTP API "
+                        "that requires NO API key. Reply in 3-5 lines only:\n"
+                        "1. API name and base URL\n"
+                        "2. Exact endpoint and query parameters to use\n"
+                        "3. Response format (JSON/XML) and the key fields to extract\n"
+                        "4. Any required HTTP headers (e.g. User-Agent)\n"
+                        "If no completely free option exists, name the cheapest option and its "
+                        "required env var name. Be concrete and brief — no prose."
+                    ),
+                },
+                {"role": "user", "content": f"Tool to implement: {tool_description}"},
+            ],
+        )
+        # Mistral SDK content can be str | list[ContentChunk] | Unset | None.
+        # Coerce to a single string we can safely .strip().
+        raw = resp.choices[0].message.content
+        if raw is None:
+            return ""
+        if isinstance(raw, str):
+            return raw.strip()
+        if isinstance(raw, list):
+            parts: list[str] = []
+            for chunk in raw:
+                text = getattr(chunk, "text", None)
+                if isinstance(text, str):
+                    parts.append(text)
+            return "".join(parts).strip()
+        return str(raw).strip()
+    except Exception as exc:
+        logger.error(f"Could not research API: {exc}")
+        return ""
+
+
+def _route_intent_via_registry(intent: str, min_confidence: float) -> dict | None:
+    """Ask the registry's semantic router which tool matches the intent.
+
+    Returns the candidate dict ({tool_id, name, description, confidence, ...})
+    only if the registry responds AND the top hit clears `min_confidence`.
+    Any HTTP failure (registry down, timeout, 5xx) returns None so the caller
+    falls back to the lexical Jaccard heuristic — the router is a strict
+    upgrade, not a hard dependency.
+    """
+    try:
+        resp = requests.post(
+            f"{REGISTRY_URL}/tools/route",
+            json={"intent": intent, "min_confidence": min_confidence, "limit": 3},
+            timeout=4,
+        )
+        resp.raise_for_status()
+    except Exception as exc:
+        logger.debug("semantic router unreachable, falling back to Jaccard: %s", exc)
+        return None
+    body = resp.json()
+    match = body.get("match")
+    if not match or float(match.get("confidence", 0.0)) < min_confidence:
+        return None
+    return match
+
+
+def _jaccard_similar_tool(missing_spec: dict, existing_tools: list[dict], threshold: float) -> dict | None:
+    """Word-level Jaccard between the missing spec and each existing tool.
+
+    Local fallback used when the semantic router is unavailable. Same return
+    shape as the network path so callers don't branch.
+    """
+    missing_desc = missing_spec.get("description", "").lower()
+    missing_name = missing_spec.get("id", "").split(".")[-1].replace("_", " ").lower()
+    missing_words = set((missing_desc + " " + missing_name).split()) - {"the", "a", "an", "of", "to", "and", "in", "for", "is", "it", "by", "on", "with"}
+
+    if not missing_words:
+        return None
+
+    best_match: dict | None = None
+    best_score = 0.0
+
+    for tool in existing_tools:
+        tool_desc = tool.get("description", "").lower()
+        tool_name = tool.get("name", "").lower().replace("_", " ")
+        tool_id = tool.get("id", "").split(".")[-1].replace("_", " ").lower()
+        tool_words = set((tool_desc + " " + tool_name + " " + tool_id).split()) - {"the", "a", "an", "of", "to", "and", "in", "for", "is", "it", "by", "on", "with"}
+
+        if not tool_words:
+            continue
+
+        intersection = missing_words & tool_words
+        union = missing_words | tool_words
+        score = len(intersection) / len(union) if union else 0.0
+
+        if score > best_score:
+            best_score = score
+            best_match = tool
+
+    if best_score >= threshold and best_match is not None:
+        logger.info(
+            "Jaccard similar tool: %s matches missing '%s' (score=%.2f)",
+            best_match.get("id"), missing_spec.get("id"), best_score,
+        )
+        return best_match
+
+    return None
+
+
+# Confidence floor for accepting a router match in lieu of synthesis.
+# Set conservatively: 0.82 gives a strong signal without false-positives
+# on overloaded keywords like "data" or "search". Tuned against the
+# eight sample intents in tests/test_semantic.py — every intended hit
+# clears 0.85, every adversarial query stays well below 0.7.
+_ROUTER_CONFIDENCE_GATE = 0.82
+
+
+def _find_similar_tool(missing_spec: dict, existing_tools: list[dict], threshold: float = 0.3) -> dict | None:
+    """Resolve a missing tool spec to an existing registered tool, if any.
+
+    Two-stage:
+      1. Hit the registry's semantic router. BM25 over name + description +
+         tags, optionally Mistral-rerank. Accept only when confidence
+         ≥ _ROUTER_CONFIDENCE_GATE.
+      2. If the router is unreachable (or finds nothing strong), fall back
+         to the local Jaccard heuristic against the in-memory tools list.
+
+    Returns a dict shaped like the entries in `existing_tools`
+    (id/name/description) so the remap step in `_filter_missing_tools`
+    works unchanged.
+    """
+    intent = missing_spec.get("description") or missing_spec.get("id", "")
+    if intent:
+        match = _route_intent_via_registry(intent, _ROUTER_CONFIDENCE_GATE)
+        if match:
+            tool_id = match.get("tool_id")
+            logger.info(
+                "Router match: %s for missing '%s' (confidence=%.2f)",
+                tool_id, missing_spec.get("id"), float(match.get("confidence", 0.0)),
+            )
+            for tool in existing_tools:
+                if tool.get("id") == tool_id:
+                    return tool
+            # Router knew about a tool the local list doesn't have — surface
+            # the router's view so the remap can still happen.
+            return {
+                "id": tool_id,
+                "name": match.get("name", ""),
+                "description": match.get("description", ""),
+            }
+
+    return _jaccard_similar_tool(missing_spec, existing_tools, threshold)
+
+
+def _filter_missing_tools(graph: dict, existing_tools: list[dict]) -> tuple[list, dict[str, str]]:
+    """Filter out missing tools that already have similar existing tools.
+
+    Returns (truly_missing, remap) where remap maps missing tool IDs to
+    existing tool IDs so the graph can be updated.
+    """
+    missing = graph.get("missing_tools", [])
+    if not missing:
+        return [], {}
+
+    truly_missing: list = []
+    remap: dict[str, str] = {}
+
+    for spec in missing:
+        if not isinstance(spec, dict):
+            continue
+        spec_id = spec.get("id")
+        if not spec_id:
+            continue
+        match = _find_similar_tool(spec, existing_tools)
+        if match:
+            remap[spec_id] = match["id"]
+            logger.info("Skipping synthesis for %s — remapping to existing tool %s", spec_id, match.get("id"))
+        else:
+            truly_missing.append(spec)
+
+    if remap:
+        for node in graph.get("nodes", []):
+            node["tools"] = [remap.get(tid, tid) for tid in node.get("tools", [])]
+        graph["missing_tools"] = truly_missing
+
+    return truly_missing, remap
+
+
+def _synthesize_missing_tools(missing_tools: list, api_key: str = "") -> list[dict]:
+    """
+    Fire-and-forget POST requests to the synthesis service for each missing tool spec.
+
+    Each entry in missing_tools is expected to be a dict produced by KilnPlanner:
+        {"id": "com.kiln.tools.foo", "description": "...", "inputs": [...], "output": {...}}
+
+    String entries (legacy planner output) are skipped — only structured specs
+    contain enough information for the synthesis service to build a tool.
+
+    Returns list of {"job_id": ..., "tool_id": ..., "status": ...} for each
+    synthesis request that was accepted, or [] if the synthesis service is not running.
+    """
+    if not missing_tools:
+        return []
+
+    jobs: list[dict] = []
+
+    def _fire(spec: dict) -> None:
+        tool_id     = spec.get("id", "")
+        tool_name   = tool_id.split(".")[-1] if tool_id else "unknown_tool"
+        description = spec.get("description", "")
+        job_id      = str(uuid.uuid4())
+
+        # Ask Mistral to research the best free API for this tool before sending to synthesis
+        api_hint = _research_api(description, api_key) if api_key else ""
+        if api_hint:
+            logger.info(f"{tool_id}: {api_hint[:120]}...")
+
+        payload   = {
+            "job_id":       job_id,
+            "tool_name":    tool_name,
+            "description":  description,
+            "inputs":       spec.get("inputs", []),
+            "output":       spec.get("output", {}),
+            "constraints":  api_hint,
+            "callback_url": KILN_CALLBACK_URL,
+        }
+        try:
+            resp = requests.post(
+                f"{SYNTHESIS_URL}/synthesize",
+                json=payload,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            jobs.append({"job_id": job_id, "tool_id": tool_id, "status": "queued"})
+            logger.info(f"Synthesis queued for {tool_id}  job={job_id}")
+        except Exception as exc:
+            logger.error(f"Could not queue synthesis for {tool_id}: {exc}")
+
+    threads = []
+    for entry in missing_tools:
+        if not isinstance(entry, dict):
+            continue           # skip bare string IDs — not enough info
+        t = threading.Thread(target=_fire, args=(entry,), daemon=True)
+        t.start()
+        threads.append(t)
+
+    # Wait briefly so jobs list is populated before we return
+    for t in threads:
+        t.join(timeout=12)
+
+    return jobs
+
+
+# ── Request/response schemas ──────────────────────────────────────────────────
+
+class KilnStartRequest(BaseModel):
+    """Body for ``POST /kiln/start``.
+
+    Validated by FastAPI before the handler runs. Anything malformed gets
+    a 422 with a precise field-level error message — much friendlier than
+    the previous ``body.get("request", "")`` defaults that swallowed bad
+    input and produced confusing downstream failures.
+    """
+    request: str = Field(
+        ...,
+        min_length=1,
+        max_length=10_000,
+        description="Natural-language task description",
+    )
+    history: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description="Last N conversation messages for context",
+    )
+    env_vars: dict[str, str] = Field(
+        default_factory=dict,
+        description="Per-run env vars (e.g. API keys for synthesized tools)",
+    )
+
+
+class KilnExecuteRequest(BaseModel):
+    """Body for ``POST /kiln/execute/{run_id}``."""
+    env_vars: dict[str, str] = Field(default_factory=dict)
+
+
+# ── Kiln Endpoints ────────────────────────────────────────────────────────────
+
+@app.post("/kiln/start", summary="Plan a Kiln run; returns plan + any missing env vars")
+@limiter.limit(os.environ.get("KILN_RATE_LIMIT_KILN_START", "30/minute"))
+async def kiln_start(
+    request: Request,
+    body: KilnStartRequest,
+    _user: KilnUser = Depends(require_auth),
+):
+    """
+    Phase 1 of a two-phase start: plan the task graph and check for missing
+    environment variables (API keys) required by the planned tools.
+
+    Returns one of:
+        {"status": "needs_config", "run_id": "...", "plan": {...}, "missing_envs": [...]}
+        {"status": "started",      "run_id": "..."}
+
+    If "needs_config", collect the missing keys and call POST /kiln/execute/{run_id}.
+    If "started", connect to GET /kiln/stream/{run_id} immediately.
+    """
+    api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=500, detail="MISTRAL_API_KEY not set on server")
+
+    user_request = body.request.strip()
+    if not user_request:
+        # min_length=1 catches empty strings, but a string of pure whitespace
+        # would slip through — bounce that here.
+        raise HTTPException(status_code=422, detail="'request' must not be only whitespace")
+
+    # Trivial-message fast path: skip the planner and the multi-agent flow.
+    # Pre-canned response is pushed straight onto the run queue so the SSE
+    # consumer drains it like any other run, but with zero LLM calls and zero
+    # planner ceremony in the UI.
+    canned = _trivial_response(user_request)
+    if canned is not None:
+        run_id = str(uuid.uuid4())
+        synthetic_graph = {
+            "task": user_request,
+            "nodes": [
+                {
+                    "id": "direct",
+                    "role": "Kiln",
+                    "task": user_request,
+                    "tools": [],
+                }
+            ],
+            "edges": [],
+            "entry_nodes": ["direct"],
+            "exit_node": "direct",
+            "missing_tools": [],
+        }
+        q: Queue = Queue()
+        with _run_lock:
+            _run_plans[run_id] = synthetic_graph
+            _run_queues[run_id] = q
+            _run_awaited_tools[run_id] = []
+        q.put({"type": "plan_ready", **synthetic_graph})
+        q.put({"type": "node_start", "node_id": "direct"})
+        q.put({"type": "node_complete", "node_id": "direct", "result": canned})
+        q.put({"type": "flow_complete", "final_answer": canned})
+        return {"status": "started", "run_id": run_id}
+
+    # Build conversation context from history (last 10 messages)
+    history = body.history
+    if history:
+        context = "\n".join(history[-10:])
+        full_request = f"Conversation so far:\n{context}\n\nCurrent request: {user_request}"
+    else:
+        full_request = user_request
+
+    provided_env: dict[str, str] = dict(body.env_vars)
+
+    # Fetch user's saved tool env vars from Clerk and merge
+    saved_env = await _fetch_user_tool_env_vars(_user.user_id)
+    provided_env = {**saved_env, **provided_env}  # explicit overrides saved
+
+    # Build tool list by fetching from the registry API
+    try:
+        tools_resp = requests.get(f"{REGISTRY_URL}/tools", timeout=5)
+        tools_resp.raise_for_status()
+        tools_list = tools_resp.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not fetch tools from Kiln registry at {REGISTRY_URL}: {exc}",
+        ) from exc
+
+    planner = KilnPlanner(registry_url=REGISTRY_URL, api_key=api_key)
+    try:
+        graph = planner.plan(full_request, tools=tools_list)
+    except Exception as exc:
+        err_str = str(exc)
+        if "429" in err_str or "rate" in err_str.lower() or "capacity" in err_str.lower():
+            raise HTTPException(
+                status_code=429,
+                detail="LLM rate limit exceeded. Please wait a moment and try again.",
+            ) from exc
+        raise HTTPException(
+            status_code=502,
+            detail=f"Planner failed: {err_str[:200]}",
+        ) from exc
+
+    run_id = str(uuid.uuid4())
+    _run_plans[run_id]  = graph
+    _run_queues[run_id] = Queue()
+
+    missing = _collect_missing_envs(graph, provided_env)
+
+    # Check if any "missing" tools overlap with existing registered tools
+    _filter_missing_tools(graph, tools_list)
+
+    # Trigger synthesis only for truly missing tools
+    synthesis_jobs = _synthesize_missing_tools(graph.get("missing_tools", []), api_key=api_key)
+    awaited_tool_ids = [j["tool_id"] for j in synthesis_jobs]
+    _run_awaited_tools[run_id] = awaited_tool_ids
+
+    if missing:
+        resp: dict = {
+            "status":       "needs_config",
+            "run_id":       run_id,
+            "plan":         graph,
+            "missing_envs": missing,
+        }
+        if synthesis_jobs:
+            resp["synthesis_jobs"] = synthesis_jobs
+        return resp
+
+    # All env vars present — kick off execution (will wait for synthesis if needed)
+    _launch_execution(run_id, graph, provided_env, api_key)
+    resp = {"status": "started", "run_id": run_id}
+    if synthesis_jobs:
+        resp["synthesis_jobs"] = synthesis_jobs
+    return resp
+
+
+@app.post("/kiln/execute/{run_id}", summary="Start execution after supplying missing env vars")
+async def kiln_execute(
+    run_id: str,
+    body: KilnExecuteRequest,
+    _user: KilnUser = Depends(require_auth),
+):
+    """
+    Phase 2 of a two-phase start: supply the missing environment variables
+    and begin executing the already-planned task graph.
+
+    Body:
+        {"env_vars": {"SERPER_API_KEY": "...", "NEWS_API_KEY": "..."}}
+
+    Returns:
+        {"status": "started", "run_id": "..."}
+
+    Connect to GET /kiln/stream/{run_id} for execution events.
+    """
+    graph = _run_plans.get(run_id)
+    if graph is None:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found — call /kiln/start first")
+
+    api_key      = os.environ.get("MISTRAL_API_KEY", "").strip()
+    provided_env = dict(body.env_vars)
+
+    _launch_execution(run_id, graph, provided_env, api_key)
+    return {"status": "started", "run_id": run_id}
+
+
+def _launch_execution(run_id: str, graph: dict, extra_env: dict[str, str], api_key: str) -> None:
+    """Spawn the background thread that runs KilnGraphFlow and feeds the SSE queue."""
+    import time
+
+    q = _run_queues.get(run_id)
+    if q is None:
+        raise ValueError(f"Run '{run_id}' has no event queue — was /kiln/start called first?")
+    awaited_tools = _run_awaited_tools.pop(run_id, [])
+
+    def _run() -> None:
+        try:
+            q.put({"type": "plan_ready", **graph})
+
+            # ── Wait for synthesis service to finish building any new tools ──
+            active_graph = graph  # may be replaced after synthesis completes
+            if awaited_tools:
+                remaining = set(awaited_tools)
+                deadline  = time.time() + 120   # 2-minute timeout
+                synthesis_failures: dict[str, str] = {}
+
+                q.put({"type": "synthesis_wait", "tool_ids": list(remaining)})
+
+                while remaining and time.time() < deadline:
+                    # Check registry API to see if the tools have been registered
+                    try:
+                        resp = requests.get(f"{REGISTRY_URL}/tools", timeout=5)
+                        resp.raise_for_status()
+                        available_ids = {t["id"] for t in resp.json()}
+                        for tid in list(remaining):
+                            if tid in available_ids:
+                                remaining.discard(tid)
+                                q.put({"type": "tool_ready", "tool_id": tid})
+                    except Exception:
+                        pass
+
+                    for tid in list(remaining):
+                        try:
+                            status_resp = requests.get(f"{SYNTHESIS_URL}/synthesize/status/{tid}", timeout=3)
+                            if not status_resp.ok:
+                                continue
+                            info = status_resp.json()
+                            if info.get("status") == "failed":
+                                synthesis_failures[tid] = str(info.get("error") or "Synthesis failed")
+                                remaining.discard(tid)
+                        except Exception:
+                            pass
+
+                    if synthesis_failures:
+                        details = "\n".join(
+                            f"  - {tid}: {msg[:240]}"
+                            for tid, msg in synthesis_failures.items()
+                        )
+                        q.put({
+                            "type": "flow_complete",
+                            "final_answer": (
+                                "I couldn't complete this request because tool synthesis failed:\n"
+                                f"{details}\n\n"
+                                "Please check the synthesis service credentials/configuration and try again."
+                            ),
+                        })
+                        return
+
+                    if remaining:
+                        time.sleep(2)
+
+                if remaining:
+                    q.put({"type": "synthesis_timeout", "missing": list(remaining)})
+                    missing_names = ", ".join(remaining)
+
+                    synth_status = ""
+                    for tid in remaining:
+                        try:
+                            status_resp = requests.get(f"{SYNTHESIS_URL}/synthesize/status/{tid}", timeout=3)
+                            if status_resp.ok:
+                                info = status_resp.json()
+                                synth_status += f"\n  - {tid}: {info.get('status', 'unknown')} — {info.get('error', '')[:200]}"
+                        except Exception:
+                            synth_status += f"\n  - {tid}: status unknown (synthesis service unreachable)"
+
+                    q.put({
+                        "type": "flow_complete",
+                        "final_answer": (
+                            f"I couldn't complete this request because the required tool(s) "
+                            f"({missing_names}) could not be synthesized in time. "
+                            f"This usually means the tool generation took longer than 2 minutes "
+                            f"or encountered an error."
+                            f"{synth_status if synth_status else ''}\n\n"
+                            f"You can try again — sometimes it succeeds on retry. "
+                            f"If the tool requires an API key, make sure it's configured."
+                        ),
+                    })
+                    return
+
+                # All synthesized tools are now available — re-plan so the graph
+                # references the newly registered tool IDs.
+                try:
+                    tools_resp = requests.get(f"{REGISTRY_URL}/tools", timeout=5)
+                    tools_resp.raise_for_status()
+                    tools_list = tools_resp.json()
+                except Exception:
+                    tools_list = []
+
+                planner = KilnPlanner(registry_url=REGISTRY_URL, api_key=api_key)
+                active_graph = planner.plan(graph["task"], tools=tools_list)
+                q.put({"type": "plan_updated", **active_graph})
+
+            llm_config = {
+                "config_list": [{
+                    "model":    "mistral-large-latest",
+                    "api_key":  api_key,
+                    "api_type": "openai",
+                    "base_url": "https://api.mistral.ai/v1",
+                }],
+                "cache_seed": None,
+            }
+            flow = KilnGraphFlow(
+                registry_url=REGISTRY_URL,
+                llm_config=llm_config,
+                on_event=q.put,
+            )
+            final_answer = flow.run(active_graph, extra_env=extra_env, verbose=False)
+            q.put({"type": "flow_complete", "final_answer": final_answer})
+
+        except Exception as exc:
+            q.put({"type": "error", "message": str(exc)})
+        finally:
+            q.put(None)  # sentinel — stream is done
+            with _run_lock:
+                _run_plans.pop(run_id, None)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.get("/kiln/stream/{run_id}", summary="SSE stream of Kiln execution events")
+async def kiln_stream(run_id: str):
+    """
+    Server-Sent Events stream for a Kiln run started via POST /kiln/start.
+
+    Event types:
+        plan_ready    — task graph is ready (nodes, edges, order, exit_node)
+        node_start    — a node has started executing
+        tool_call     — a tool is being called (node_id, tool, args)
+        tool_result   — tool returned a result (node_id, tool, result)
+        node_complete — a node finished (node_id, result)
+        flow_complete — all nodes done (final_answer)
+        error         — something went wrong (message)
+
+    Connect with:
+        const src = new EventSource('/kiln/stream/<run_id>')
+        src.onmessage = (e) => handleEvent(JSON.parse(e.data))
+    """
+    with _run_lock:
+        q = _run_queues.get(run_id)
+    if q is None:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    async def _generate():
+        loop = asyncio.get_event_loop()
+        try:
+            while True:
+                # Run blocking q.get in thread pool so the event loop stays free
+                event = await loop.run_in_executor(None, lambda: q.get(timeout=180))
+                if event is None:
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
+        except Empty:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Timed out'})}\n\n"
+        finally:
+            with _run_lock:
+                _run_queues.pop(run_id, None)
+                _run_plans.pop(run_id, None)
+
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

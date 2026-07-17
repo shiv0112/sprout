@@ -1,0 +1,76 @@
+[project]
+name = "kiln"
+version = "1.0.0"
+description = "A self-evolving tool registry for autonomous AI agents"
+requires-python = ">=3.12"
+dependencies = [
+    # Inside the monorepo we pull the `[server]` extras so every workspace
+    # member can import its server-side modules (FastAPI, SQLAlchemy, JWT,
+    # slowapi, redis). Consumers outside the monorepo only get what they
+    # explicitly `pip install kiln-registry-api[server]` etc.
+    "kiln-shared[server]",
+    "kiln-registry-api[server,langchain,pydantic_ai]",
+    "kiln-chat-backend",
+    "kiln-synthesis-service",
+    "kiln-tool-executor",
+    "kiln-mcp-server",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.5.0",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+    "types-jsonschema>=4.0",
+    "types-requests>=2.31",
+]
+
+[tool.mypy]
+# Enable pydantic's mypy plugin so Field(default, ...) syntax is
+# recognised as supplying a default and BaseModel constructors don't
+# require every field at the call site.
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+# Use importlib mode so test packages with the same name (e.g. each
+# package has its own `tests/`) don't collide at module-import time.
+addopts = "-q --import-mode=importlib"
+testpaths = ["packages"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+filterwarnings = [
+    # Third-party deprecations we can't fix locally:
+    "ignore::DeprecationWarning:aiosqlite",
+    "ignore::UserWarning:flaml",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["kiln_shared", "kiln_registry", "kiln_chat_backend", "kiln_synthesis", "kiln_executor", "kiln_mcp"]
+
+[tool.uv.workspace]
+members = [
+    "packages/shared",
+    "packages/chat_backend",
+    "packages/registry_api",
+    "packages/tool_executor",
+    "packages/synthesis_service",
+    "packages/mcp_server",
+]
+
+[tool.uv.sources]
+kiln-shared = { workspace = true }
+kiln-registry-api = { workspace = true }
+kiln-chat-backend = { workspace = true }
+kiln-synthesis-service = { workspace = true }
+kiln-tool-executor = { workspace = true }
+kiln-mcp-server = { workspace = true }

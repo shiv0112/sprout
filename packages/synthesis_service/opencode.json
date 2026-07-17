@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "mistral": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Mistral AI",
+      "options": {
+        "baseURL": "https://api.mistral.ai/v1",
+        "apiKey": "{env:MISTRAL_API_KEY}"
+      },
+      "models": {
+        "codestral-latest": {
+          "name": "Codestral (code-specialized)"
+        }
+      }
+    },
+    "nim": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NVIDIA NIM",
+      "options": {
+        "baseURL": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "{env:NVIDIA_API_KEY}"
+      },
+      "models": {
+        "meta/llama-3.3-70b-instruct": {
+          "name": "Llama 3.3 70B Instruct"
+        }
+      }
+    }
+  },
+  "model": "mistral/codestral-latest"
+}

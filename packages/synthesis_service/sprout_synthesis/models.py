@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 class ToolInput(BaseModel):
     name: str = Field(..., description="Input parameter name")
-    type: str = Field(..., description="Sprout type: string|integer|float|boolean|enum|array|object")
+    type: str = Field(..., description="Sprout type: string|integer|number|boolean|array|object")
     description: str = Field("", description="What this parameter does")
     required: bool = True
     default: Any | None = None

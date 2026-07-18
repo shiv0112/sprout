@@ -144,8 +144,8 @@ JSON SCHEMA  (output raw JSON only, no markdown fences, no commentary)
     {
       "id":          "com.sprout.tools.<snake_case_name>",
       "description": "<one specific sentence: what this tool does and which API it calls>",
-      "inputs":      [{"name": "<param>", "type": "string|integer|float|boolean", "description": "<desc>", "required": true}],
-      "output":      {"type": "dict", "fields": [{"name": "<field>", "type": "string|integer|float|boolean", "description": "<desc>"}]}
+      "inputs":      [{"name": "<param>", "type": "string|integer|number|boolean", "description": "<desc>", "required": true}],
+      "output":      {"type": "dict", "fields": [{"name": "<field>", "type": "string|integer|number|boolean", "description": "<desc>"}]}
     }
   ]
 }

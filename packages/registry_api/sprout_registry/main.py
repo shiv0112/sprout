@@ -978,6 +978,34 @@ def delete_tool(tool_id: str, _user: SproutUser = Depends(require_auth)):
 
 # ── Synthesis Callback Endpoint ───────────────────────────────────────────────
 
+# LLM-friendly type aliases → the spec schema's canonical enum. Synthesized
+# specs often use Python-ish names ("float", "str", "dict"); normalize them so a
+# working tool isn't rejected over a cosmetic type-name mismatch.
+_SPEC_TYPE_ALIASES = {
+    "float": "number", "double": "number", "decimal": "number",
+    "str": "string", "text": "string",
+    "int": "integer", "long": "integer",
+    "bool": "boolean",
+    "list": "array", "tuple": "array",
+    "dict": "object", "map": "object", "json": "object",
+}
+
+
+def _normalize_spec_types(raw: dict) -> None:
+    """Map common LLM type aliases in interface inputs/outputs to the schema's
+    canonical types, in place."""
+    iface = raw.get("interface")
+    if not isinstance(iface, dict):
+        return
+    for key in ("inputs", "outputs"):
+        items = iface.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if isinstance(item, dict) and isinstance(item.get("type"), str):
+                item["type"] = _SPEC_TYPE_ALIASES.get(item["type"].strip().lower(), item["type"])
+
+
 @app.post("/synthesis/callback", summary="Receive synthesis result and auto-register tool")
 async def synthesis_callback(
     request: Request,
@@ -1010,6 +1038,11 @@ async def synthesis_callback(
         raw = yaml.safe_load(spec_bytes)
     except yaml.YAMLError as exc:
         raise HTTPException(status_code=422, detail=f"Invalid YAML in spec: {exc}") from exc
+
+    # Normalize common LLM type aliases (float->number, str->string, …) and
+    # re-serialize, so the persisted spec matches what we validate + register.
+    _normalize_spec_types(raw)
+    spec_bytes = yaml.safe_dump(raw, sort_keys=False).encode()
 
     resolved_tool_id = raw.get("tool", {}).get("id") or tool_id
     version          = str(raw.get("tool", {}).get("version", "1.0.0"))

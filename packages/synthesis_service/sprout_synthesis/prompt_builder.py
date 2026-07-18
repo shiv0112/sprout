@@ -26,14 +26,14 @@ tool:
 interface:
   inputs:
     - name: <param_name>
-      type: <string|integer|float|boolean|array|object>
+      type: string                 # choose ONE concrete type: string | integer | number | boolean | array | object  (use "number" for decimals, NOT "float"; do not copy this list literally)
       description: <what it is>
       required: <true|false>
       default: <optional default value>
       enum: [<for enum type only — omit this line if not an enum>]
   outputs:
     - name: <output_field_name>
-      type: <string|integer|float|boolean|array|object>
+      type: string                 # choose ONE concrete type: string | integer | number | boolean | array | object  (use "number" for decimals, NOT "float"; do not copy this list literally)
       description: <what this field contains>
 
 implementation:

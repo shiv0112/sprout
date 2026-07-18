@@ -13,41 +13,49 @@ from sprout_synthesis.models import SynthesizeRequest
 
 # -- Sprout spec format reference (embedded) ------------------------------------
 
+# A COMPLETE, CONCRETE example for a fictional tool. Copy the STRUCTURE, but
+# replace EVERY value with ones for the tool described below. NEVER emit
+# angle-bracket placeholders like <...>, "true|false", or a list of types —
+# always write real, concrete values. Allowed `type` values are exactly:
+# string, integer, number, boolean, array, object  (use "number" for decimals).
 _SPEC_FORMAT = """\
 sprout_version: "1.0"
 
 tool:
-  id: com.sprout.tools.<tool_name>
-  name: <tool_name>          # MUST match the Python function name exactly
+  id: com.sprout.tools.random_fact
+  name: random_fact          # MUST match the Python function name exactly
   version: 1.0.0
-  description: <What the tool does — this becomes the LLM function description>
+  description: Fetch a random fun fact from a free public API.
   author: sprout_synthesis
 
 interface:
   inputs:
-    - name: <param_name>
-      type: string                 # choose ONE concrete type: string | integer | number | boolean | array | object  (use "number" for decimals, NOT "float"; do not copy this list literally)
-      description: <what it is>
-      required: <true|false>
-      default: <optional default value>
-      enum: [<for enum type only — omit this line if not an enum>]
+    - name: category
+      type: string
+      description: Which category of fact to fetch.
+      required: false
+      default: all
   outputs:
-    - name: <output_field_name>
-      type: string                 # choose ONE concrete type: string | integer | number | boolean | array | object  (use "number" for decimals, NOT "float"; do not copy this list literally)
-      description: <what this field contains>
+    - name: fact
+      type: string
+      description: The fact text returned by the API.
+    - name: success
+      type: boolean
+      description: True if the fetch succeeded.
 
 implementation:
   runtime: python3.10
   entrypoint: impl.py
-  dependencies: []
+  dependencies:
+    - requests>=2.28.0
 
 testing:
   fixtures:
     - input:
-        <param>: <value>
+        category: all
       expected_output_contains:
-        - <expected_key_1>
-        - <expected_key_2>
+        - fact
+        - success
 
 metadata:
   tags: [synthesized]

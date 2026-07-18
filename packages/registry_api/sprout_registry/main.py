@@ -1002,8 +1002,21 @@ def _normalize_spec_types(raw: dict) -> None:
         if not isinstance(items, list):
             continue
         for item in items:
-            if isinstance(item, dict) and isinstance(item.get("type"), str):
+            if not isinstance(item, dict):
+                continue
+            if isinstance(item.get("type"), str):
                 item["type"] = _SPEC_TYPE_ALIASES.get(item["type"].strip().lower(), item["type"])
+            # LLMs often emit `required` as a string ("true") or a placeholder
+            # ("<true|false>"). Coerce booleans; drop anything uncoercible so the
+            # field falls back to its default rather than failing validation.
+            if key == "inputs" and "required" in item and not isinstance(item["required"], bool):
+                val = str(item["required"]).strip().lower()
+                if val in ("true", "yes", "1"):
+                    item["required"] = True
+                elif val in ("false", "no", "0"):
+                    item["required"] = False
+                else:
+                    item.pop("required", None)
 
 
 @app.post("/synthesis/callback", summary="Receive synthesis result and auto-register tool")

@@ -48,6 +48,13 @@ async def notify_success(
             },
             headers=_auth_headers(),
         )
+        if response.is_error:
+            # Surface WHY the registry rejected the tool (schema mismatch,
+            # blocked import, fixture failure, …) instead of a bare status code.
+            logger.error(
+                "Registry rejected tool %s — HTTP %s: %s",
+                tool_id, response.status_code, response.text[:1500],
+            )
         response.raise_for_status()
         logger.info("Tool %s registered successfully: %s", tool_id, response.json())
 

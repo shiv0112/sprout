@@ -410,7 +410,8 @@ def _research_api(tool_description: str, api_key: str = "") -> str:
     ]
 
     try:
-        providers = provider_chain(mistral_api_key=api_key)
+        # Small helper task → fast non-thinking model.
+        providers = provider_chain(mistral_api_key=api_key, reasoning=False)
     except Exception as exc:
         logger.error(f"Could not research API (no LLM provider configured): {exc}")
         return ""

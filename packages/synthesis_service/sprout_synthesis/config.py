@@ -29,9 +29,13 @@ def _default_callback_url() -> str:
 
 
 class Settings(BaseSettings):
-    # OpenCode can't drive gpt-oss-120b (double-slash id + harmony format break
-    # its agentic loop), so synthesis uses Groq's fast tool-calling model.
-    opencode_model: str = "groq/llama-3.3-70b-versatile"
+    # Tool synthesis runs through OpenCode's agentic harness, which needs a
+    # code-specialized model with schema-compliant tool-calling. Groq's general
+    # models (gpt-oss-120b, llama-3.3-70b) emit malformed tool calls that crash
+    # OpenCode, so synthesis uses Codestral. Planning/execution stay on Groq
+    # (see chat_backend/llm_providers.py). Synthesis is infrequent, so Mistral
+    # rate limits are not a concern here.
+    opencode_model: str = "mistral/codestral-latest"
 
     opencode_timeout: int = 600
 

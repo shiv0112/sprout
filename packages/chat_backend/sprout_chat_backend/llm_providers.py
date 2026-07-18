@@ -12,21 +12,42 @@ call in the chat backend goes through the ``openai`` SDK with a per-provider
   automatically on failure.
 
 Env vars:
+  GROQ_API_KEY          Groq key (enables the Groq provider)
+  OPENAI_API_KEY        OpenAI key (enables the OpenAI provider)
   NVIDIA_API_KEY        NVIDIA NIM key (enables the NIM provider)
   MISTRAL_API_KEY       Mistral key (enables the Mistral provider / fallback)
+  GROQ_BASE_URL           Groq base URL           (default: https://api.groq.com/openai/v1)
+  GROQ_MODEL_FAST         Groq model id           (default: llama-3.3-70b-versatile)
+  SPROUT_OPENAI_MODEL     OpenAI model id         (default: gpt-4o-mini)
   SPROUT_NIM_MODEL        NIM model id            (default: z-ai/glm-5.2)
   SPROUT_MISTRAL_MODEL    Mistral model id        (default: mistral-large-latest)
-  SPROUT_LLM_PRIMARY      "nim" | "mistral"       (default: nim)
+  SPROUT_LLM_PRIMARY      "groq" | "openai" | "mistral" | "nim"   (default: groq)
 """
 from __future__ import annotations
 
 import os
 
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_NIM_MODEL = "z-ai/glm-5.2"
 DEFAULT_MISTRAL_MODEL = "mistral-large-latest"
+
+
+def _groq_base_url() -> str:
+    return os.environ.get("GROQ_BASE_URL", GROQ_BASE_URL).strip() or GROQ_BASE_URL
+
+
+def _groq_model() -> str:
+    return os.environ.get("GROQ_MODEL_FAST", DEFAULT_GROQ_MODEL).strip() or DEFAULT_GROQ_MODEL
+
+
+def _openai_model() -> str:
+    return os.environ.get("SPROUT_OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip() or DEFAULT_OPENAI_MODEL
 
 
 def _nim_model() -> str:
@@ -42,32 +63,41 @@ def provider_chain(mistral_api_key: str = "") -> list[dict]:
 
     A provider is included only when its API key is present. ``mistral_api_key``
     (usually the per-request key) takes precedence over ``MISTRAL_API_KEY``.
+    ``SPROUT_LLM_PRIMARY`` ("groq" | "openai" | "mistral" | "nim") chooses which
+    runs first. The default chain is **Groq → NVIDIA NIM → Mistral**.
+
+    OpenAI participates only when it is the explicit primary (it needs its own
+    billing), so it never sits silently in the fallback path.
 
     Raises:
-        RuntimeError: when neither provider has a key.
+        RuntimeError: when no provider has a key.
     """
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
     nvidia_key = os.environ.get("NVIDIA_API_KEY", "").strip()
     mistral_key = (mistral_api_key or os.environ.get("MISTRAL_API_KEY", "")).strip()
 
-    nim = (
-        {"name": "nvidia-nim", "model": _nim_model(), "api_key": nvidia_key, "base_url": NIM_BASE_URL}
-        if nvidia_key
-        else None
-    )
-    mistral = (
-        {"name": "mistral", "model": _mistral_model(), "api_key": mistral_key, "base_url": MISTRAL_BASE_URL}
-        if mistral_key
-        else None
-    )
+    providers: dict[str, dict] = {}
+    if groq_key:
+        providers["groq"] = {"name": "groq", "model": _groq_model(), "api_key": groq_key, "base_url": _groq_base_url()}
+    if openai_key:
+        providers["openai"] = {"name": "openai", "model": _openai_model(), "api_key": openai_key, "base_url": OPENAI_BASE_URL}
+    if nvidia_key:
+        providers["nim"] = {"name": "nvidia-nim", "model": _nim_model(), "api_key": nvidia_key, "base_url": NIM_BASE_URL}
+    if mistral_key:
+        providers["mistral"] = {"name": "mistral", "model": _mistral_model(), "api_key": mistral_key, "base_url": MISTRAL_BASE_URL}
 
-    primary = os.environ.get("SPROUT_LLM_PRIMARY", "nim").strip().lower()
-    ordered = [mistral, nim] if primary == "mistral" else [nim, mistral]
-    chain = [p for p in ordered if p is not None]
+    primary = os.environ.get("SPROUT_LLM_PRIMARY", "groq").strip().lower()
+    # Fallback order after the primary: Groq → NVIDIA NIM → Mistral (Mistral last).
+    # OpenAI is included only when it is the primary (see docstring).
+    fallback_order = ("groq", "nim", "mistral")
+    order = [primary] + [k for k in fallback_order if k != primary]
+    chain = [providers[k] for k in order if k in providers]
 
     if not chain:
         raise RuntimeError(
-            "No LLM provider configured. Set NVIDIA_API_KEY (NVIDIA NIM) "
-            "and/or MISTRAL_API_KEY (Mistral)."
+            "No LLM provider configured. Set GROQ_API_KEY (Groq), OPENAI_API_KEY "
+            "(OpenAI), NVIDIA_API_KEY (NVIDIA NIM), and/or MISTRAL_API_KEY (Mistral)."
         )
     return chain
 

@@ -4,3 +4,9 @@ pydantic>=2.0
 pydantic-settings>=2.0
 httpx>=0.27.0
 pyyaml>=6.0
+
+# Common tool runtime deps — the synthesis pipeline validates a generated tool
+# by importing its impl.py, so the libraries synthesized tools use (the prompt
+# tells the model to use `requests`) must be importable here or validation fails.
+requests>=2.28.0
+beautifulsoup4>=4.12.0

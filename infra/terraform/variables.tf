@@ -1,5 +1,5 @@
 variable "project_id" {
-  description = "GCP project ID (e.g. kiln-cs5224)"
+  description = "GCP project ID (e.g. sprout-cs5224)"
   type        = string
 }
 
@@ -30,5 +30,5 @@ variable "billing_account_id" {
 variable "github_repository" {
   description = "GitHub repository (owner/name) for Workload Identity Federation"
   type        = string
-  default     = "aryabyte21/kiln"
+  default     = "aryabyte21/sprout"
 }

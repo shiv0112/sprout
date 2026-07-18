@@ -1,5 +1,5 @@
 [project]
-name = "kiln"
+name = "sprout"
 version = "1.0.0"
 description = "A self-evolving tool registry for autonomous AI agents"
 requires-python = ">=3.12"
@@ -7,13 +7,13 @@ dependencies = [
     # Inside the monorepo we pull the `[server]` extras so every workspace
     # member can import its server-side modules (FastAPI, SQLAlchemy, JWT,
     # slowapi, redis). Consumers outside the monorepo only get what they
-    # explicitly `pip install kiln-registry-api[server]` etc.
-    "kiln-shared[server]",
-    "kiln-registry-api[server,langchain,pydantic_ai]",
-    "kiln-chat-backend",
-    "kiln-synthesis-service",
-    "kiln-tool-executor",
-    "kiln-mcp-server",
+    # explicitly `pip install sprout-registry-api[server]` etc.
+    "sprout-shared[server]",
+    "sprout-registry-api[server,langchain,pydantic_ai]",
+    "sprout-chat-backend",
+    "sprout-synthesis-service",
+    "sprout-tool-executor",
+    "sprout-mcp-server",
 ]
 
 [tool.uv]
@@ -55,7 +55,7 @@ select = ["E", "F", "I", "W", "UP", "B", "SIM"]
 ignore = ["E501", "B008"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["kiln_shared", "kiln_registry", "kiln_chat_backend", "kiln_synthesis", "kiln_executor", "kiln_mcp"]
+known-first-party = ["sprout_shared", "sprout_registry", "sprout_chat_backend", "sprout_synthesis", "sprout_executor", "sprout_mcp"]
 
 [tool.uv.workspace]
 members = [
@@ -68,9 +68,9 @@ members = [
 ]
 
 [tool.uv.sources]
-kiln-shared = { workspace = true }
-kiln-registry-api = { workspace = true }
-kiln-chat-backend = { workspace = true }
-kiln-synthesis-service = { workspace = true }
-kiln-tool-executor = { workspace = true }
-kiln-mcp-server = { workspace = true }
+sprout-shared = { workspace = true }
+sprout-registry-api = { workspace = true }
+sprout-chat-backend = { workspace = true }
+sprout-synthesis-service = { workspace = true }
+sprout-tool-executor = { workspace = true }
+sprout-mcp-server = { workspace = true }

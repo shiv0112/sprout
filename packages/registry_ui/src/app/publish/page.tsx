@@ -264,7 +264,7 @@ export default function PublishPage() {
           <div className="max-w-sm space-y-2">
             <h3 className="text-lg font-semibold">Sign in required</h3>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              You need to sign in to publish tools to the Kiln registry.
+              You need to sign in to publish tools to the Sprout registry.
             </p>
           </div>
         </div>

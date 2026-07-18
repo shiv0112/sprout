@@ -11,17 +11,17 @@ local k = import 'k.libsonnet';
     container.new('postgres', 'postgres:17-alpine')
     + container.withPorts([k.core.v1.containerPort.new(5432)])
     + container.withEnvMixin([
-      k.core.v1.envVar.new('POSTGRES_DB', 'kiln_registry'),
-      k.core.v1.envVar.new('POSTGRES_USER', 'kiln'),
-      k.core.v1.envVar.fromSecretRef('POSTGRES_PASSWORD', 'kiln-secrets', 'PG_PASSWORD'),
+      k.core.v1.envVar.new('POSTGRES_DB', 'sprout_registry'),
+      k.core.v1.envVar.new('POSTGRES_USER', 'sprout'),
+      k.core.v1.envVar.fromSecretRef('POSTGRES_PASSWORD', 'sprout-secrets', 'PG_PASSWORD'),
       k.core.v1.envVar.new('PGDATA', '/var/lib/postgresql/data/pgdata'),
     ])
     + container.resources.withRequests({ cpu: '100m', memory: '256Mi' })
     + container.resources.withLimits({ cpu: '500m', memory: '512Mi' })
-    + container.livenessProbe.exec.withCommand(['pg_isready', '-U', 'kiln'])
+    + container.livenessProbe.exec.withCommand(['pg_isready', '-U', 'sprout'])
     + container.livenessProbe.withInitialDelaySeconds(15)
     + container.livenessProbe.withPeriodSeconds(10)
-    + container.readinessProbe.exec.withCommand(['pg_isready', '-U', 'kiln'])
+    + container.readinessProbe.exec.withCommand(['pg_isready', '-U', 'sprout'])
     + container.readinessProbe.withInitialDelaySeconds(5)
     + container.readinessProbe.withPeriodSeconds(5)
     + container.withVolumeMountsMixin([volumeMount.new('pgdata', '/var/lib/postgresql/data')]),

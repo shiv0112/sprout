@@ -3,7 +3,7 @@ import { ClerkProvider, Show, UserButton, SignInButton } from "@clerk/nextjs"
 import { dark } from "@clerk/themes"
 import { Figtree, Geist_Mono } from "next/font/google"
 import Link from "next/link"
-import { Flame } from "lucide-react"
+import { Sprout } from "lucide-react"
 
 import { NavLinks } from "@/app/_components/nav-links"
 import { Providers } from "@/app/_components/providers"
@@ -19,7 +19,7 @@ const figtree = Figtree({
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Kiln",
+  title: "Sprout",
   description: "Self-evolving tool registry for autonomous AI agents",
 }
 
@@ -51,10 +51,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center px-6">
                 <Link href="/" className="group mr-8 flex items-center gap-2.5">
                   <span className="relative flex size-9 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 transition-all duration-300 group-hover:border-primary/50 group-hover:bg-primary/15">
-                    <Flame className="size-4 text-primary transition-colors duration-300 group-hover:text-primary" />
+                    <Sprout className="size-4 text-primary transition-colors duration-300 group-hover:text-primary" />
                   </span>
-                  <span className="text-[15px] font-semibold tracking-tight text-foreground/95">
-                    Kiln
+                  <span className="flex flex-col leading-none">
+                    <span className="text-[15px] font-semibold tracking-tight text-foreground/95">
+                      Sprout
+                    </span>
+                    <span className="mt-0.5 hidden text-[10px] font-medium text-muted-foreground/70 sm:block">
+                      Self evolving tool registry
+                    </span>
                   </span>
                 </Link>
 
@@ -89,8 +94,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <footer className="border-t border-border/60">
               <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-6 py-5">
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <Flame className="size-3 text-primary/65" />
-                  Kiln — Self-evolving tool registry
+                  <Sprout className="size-3 text-primary/65" />
+                  Sprout — Self evolving tool registry
                 </div>
                 <div className="text-[11px] text-muted-foreground/80">
                   &copy; {new Date().getFullYear()}

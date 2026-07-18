@@ -3,7 +3,7 @@
   "root": "packages/chat_backend",
   "targets": {
     "dev": {
-      "command": "uv run uvicorn kiln_chat_backend.main:app --host 127.0.0.1 --port 8765 --reload"
+      "command": "uv run uvicorn sprout_chat_backend.main:app --host 127.0.0.1 --port 8765 --reload"
     },
     "lint": {
       "command": "uv run ruff check packages/chat_backend"

@@ -28,16 +28,16 @@ jobs:
             exit 1
           fi
 
-      - name: Build kiln-shared
-        run: uv build --package kiln-shared
+      - name: Build sprout-shared
+        run: uv build --package sprout-shared
 
-      - name: Build kiln-registry-api
-        run: uv build --package kiln-registry-api
+      - name: Build sprout-registry-api
+        run: uv build --package sprout-registry-api
 
       - name: Validate metadata
         run: uvx twine check dist/*
 
-      - name: Publish kiln-shared (wheel + sdist)
+      - name: Publish sprout-shared (wheel + sdist)
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         # Enable nullglob + globstar + fail-on-no-match so a missing wheel
@@ -46,11 +46,11 @@ jobs:
         # BOTH artefacts uploaded to PyPI, not just the wheel.
         run: |
           shopt -s failglob
-          uv publish dist/kiln_shared-*.whl dist/kiln_shared-*.tar.gz
+          uv publish dist/sprout_shared-*.whl dist/sprout_shared-*.tar.gz
 
-      - name: Publish kiln-registry-api (wheel + sdist)
+      - name: Publish sprout-registry-api (wheel + sdist)
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           shopt -s failglob
-          uv publish dist/kiln_registry_api-*.whl dist/kiln_registry_api-*.tar.gz
+          uv publish dist/sprout_registry_api-*.whl dist/sprout_registry_api-*.tar.gz

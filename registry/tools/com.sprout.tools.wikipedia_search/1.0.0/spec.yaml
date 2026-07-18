@@ -1,0 +1,52 @@
+sprout_version: "1.0"
+
+tool:
+  id: com.sprout.tools.wikipedia_search
+  name: wikipedia_search
+  version: 1.0.0
+  description: "Search Wikipedia and return the best-matching article summary, URL, thumbnail, and short description. Uses the public MediaWiki REST API — no key required."
+  author: sprout
+
+interface:
+  inputs:
+    - name: query
+      type: string
+      description: "Topic, person, place, or concept."
+      required: true
+    - name: language
+      type: string
+      description: "Wikipedia language code (e.g. 'en', 'es', 'fr', 'de', 'ja')."
+      required: false
+      default: "en"
+    - name: sentences
+      type: integer
+      description: "Approximate length cap for the summary."
+      required: false
+      default: 5
+  outputs:
+    - name: success
+      type: boolean
+    - name: title
+      type: string
+    - name: extract
+      type: string
+    - name: url
+      type: string
+    - name: thumbnail
+      type: string
+
+implementation:
+  runtime: python3.10
+  entrypoint: wikipedia_search.py
+  dependencies:
+    - requests>=2.28.0
+
+testing:
+  fixtures:
+    - input:
+        query: "Quantum computing"
+      expected_output_contains: [success, title, extract, url]
+
+metadata:
+  tags: [knowledge, wikipedia, reference, no-api-key]
+  category: data

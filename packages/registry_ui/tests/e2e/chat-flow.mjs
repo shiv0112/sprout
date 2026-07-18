@@ -4,12 +4,12 @@
 //   1. Puppeteer browser test — navigate to /chat, assert the input renders
 //      and there are no console errors. No real message sent (Clerk login
 //      is not scripted).
-//   2. Direct backend API tests via fetch — POST /kiln/start with the
-//      KILN_INTERNAL_SECRET so we bypass Clerk entirely. Three queries:
+//   2. Direct backend API tests via fetch — POST /sprout/start with the
+//      SPROUT_INTERNAL_SECRET so we bypass Clerk entirely. Three queries:
 //       a) "ping" → must return "pong" in <1s (proves iter-31 fast path)
 //       b) "Find tools for web scraping" → must only mention tools that
 //          actually exist in /tools (proves iter-32 grounding fix)
-//       c) "What is Kiln?" → must produce a single-node SHAPE A graph
+//       c) "What is Sprout?" → must produce a single-node SHAPE A graph
 //          with no synthesized tools (proves iter-29 prompt rewrite)
 //
 // Run:   node packages/registry_ui/tests/e2e/chat-flow.mjs
@@ -25,12 +25,12 @@ const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
 
 // Load the internal secret from process.env or fall back to .env file.
 function loadInternalSecret() {
-  if (process.env.KILN_INTERNAL_SECRET) return process.env.KILN_INTERNAL_SECRET
+  if (process.env.SPROUT_INTERNAL_SECRET) return process.env.SPROUT_INTERNAL_SECRET
   try {
     const envPath = join(REPO_ROOT, '.env')
     const text = readFileSync(envPath, 'utf8')
     for (const line of text.split('\n')) {
-      const m = line.match(/^KILN_INTERNAL_SECRET=(.+)$/)
+      const m = line.match(/^SPROUT_INTERNAL_SECRET=(.+)$/)
       if (m) return m[1].trim().replace(/^['"]|['"]$/g, '')
     }
   } catch {
@@ -48,9 +48,9 @@ await preflightHealthChecks(['registry_ui', 'registry_api', 'chat_backend'])
 
 if (!INTERNAL_SECRET) {
   console.error(
-    '\nKILN_INTERNAL_SECRET not found in process.env or .env\n' +
+    '\nSPROUT_INTERNAL_SECRET not found in process.env or .env\n' +
     'The chat-flow test bypasses Clerk via the internal secret. Set it in .env\n' +
-    'or export KILN_INTERNAL_SECRET=<value> before running.\n'
+    'or export SPROUT_INTERNAL_SECRET=<value> before running.\n'
   )
   process.exit(2)
 }
@@ -64,8 +64,8 @@ async function fetchAllRegisteredTools() {
   return new Set(tools.map((t) => t.id))
 }
 
-async function startKilnRun(request) {
-  const res = await fetch(`${CHAT_BACKEND}/kiln/start`, {
+async function startSproutRun(request) {
+  const res = await fetch(`${CHAT_BACKEND}/sprout/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -75,17 +75,17 @@ async function startKilnRun(request) {
   })
   if (!res.ok) {
     const body = await res.text()
-    throw new Error(`POST /kiln/start returned ${res.status}: ${body}`)
+    throw new Error(`POST /sprout/start returned ${res.status}: ${body}`)
   }
   return res.json()
 }
 
-async function streamKilnRun(runId, timeoutMs = 60_000) {
-  const res = await fetch(`${CHAT_BACKEND}/kiln/stream/${runId}`, {
+async function streamSproutRun(runId, timeoutMs = 60_000) {
+  const res = await fetch(`${CHAT_BACKEND}/sprout/stream/${runId}`, {
     headers: { 'X-Internal-Secret': INTERNAL_SECRET },
     signal: AbortSignal.timeout(timeoutMs),
   })
-  if (!res.ok) throw new Error(`GET /kiln/stream returned ${res.status}`)
+  if (!res.ok) throw new Error(`GET /sprout/stream returned ${res.status}`)
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
@@ -154,8 +154,8 @@ console.log('\n--- Backend API tests (via internal secret) ---\n')
 let ok2 = false
 try {
   const start = Date.now()
-  const startResp = await startKilnRun('ping')
-  const { finalAnswer } = await streamKilnRun(startResp.run_id, 10_000)
+  const startResp = await startSproutRun('ping')
+  const { finalAnswer } = await streamSproutRun(startResp.run_id, 10_000)
   const ms = Date.now() - start
 
   if (finalAnswer !== 'pong') {
@@ -181,15 +181,15 @@ let skip3 = false
 try {
   const start = Date.now()
   const registryTools = await fetchAllRegisteredTools()
-  const startResp = await startKilnRun('Find tools for web scraping')
-  const { finalAnswer, events } = await streamKilnRun(startResp.run_id, 60_000)
+  const startResp = await startSproutRun('Find tools for web scraping')
+  const { finalAnswer, events } = await streamSproutRun(startResp.run_id, 60_000)
   const ms = Date.now() - start
 
   if (!finalAnswer || typeof finalAnswer !== 'string') {
     throw new Error(`No final_answer received (events: ${events.length})`)
   }
 
-  const mentioned = finalAnswer.match(/com\.kiln\.tools\.[a-z0-9_]+/g) || []
+  const mentioned = finalAnswer.match(/com\.sprout\.tools\.[a-z0-9_]+/g) || []
   const fabricated = mentioned.filter((id) => !registryTools.has(id))
   if (fabricated.length > 0) {
     throw new Error(

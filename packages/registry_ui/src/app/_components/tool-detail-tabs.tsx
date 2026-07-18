@@ -703,8 +703,8 @@ function IntegrationTab({
           Use this tool from any framework
         </h3>
         <p className="max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground/85">
-          Pick a stack — copy the snippet — replace <code className="rounded bg-muted/50 px-1 font-mono text-[11px] text-primary/90">YOUR_KILN_API_KEY</code>.
-          The <code className="rounded bg-muted/50 px-1 font-mono text-[11px] text-primary/90">KilnRuntime</code> path
+          Pick a stack — copy the snippet — replace <code className="rounded bg-muted/50 px-1 font-mono text-[11px] text-primary/90">YOUR_SPROUT_API_KEY</code>.
+          The <code className="rounded bg-muted/50 px-1 font-mono text-[11px] text-primary/90">SproutRuntime</code> path
           gives you native objects for AG2 / LangChain / Pydantic-AI; the others
           go straight over HTTP.
         </p>

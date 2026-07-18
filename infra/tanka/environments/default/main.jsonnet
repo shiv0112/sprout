@@ -1,8 +1,8 @@
-local kiln = import 'kiln.libsonnet';
+local sprout = import 'sprout.libsonnet';
 
-kiln {
+sprout {
   _config+:: {
-    namespace: 'kiln',
+    namespace: 'sprout',
     image_registry: std.extVar('IMAGE_REGISTRY'),
     image_tag: std.extVar('IMAGE_TAG'),
     gcs_bucket: std.extVar('GCS_BUCKET'),

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Render Blueprint — Kiln backend (all microservices in ONE service).
+# Render Blueprint — Sprout backend (all microservices in ONE service).
 #
 # Deploy:  Render Dashboard ▸ New ▸ Blueprint ▸ pick this repo. Render reads this
 # file, provisions Postgres + Key Value (Redis), and builds docker/Dockerfile.render.
@@ -12,9 +12,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 services:
   - type: web
-    name: kiln-backend
+    name: sprout-backend
     runtime: docker
-    repo: https://github.com/shiv0112/kiln
+    repo: https://github.com/shiv0112/sprout
     branch: main
     dockerfilePath: ./docker/Dockerfile.render
     dockerContext: .
@@ -23,21 +23,21 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: KILN_ENV
+      - key: SPROUT_ENV
         value: production
 
       # ── Managed data stores (auto-wired by this blueprint) ──
       - key: DATABASE_URL
         fromDatabase:
-          name: kiln-postgres
+          name: sprout-postgres
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: kiln-redis
+          name: sprout-redis
           property: connectionString
-      - key: KILN_DB_AUTO_CREATE
-        value: "true"           # auto-create schema; or run `kiln-registry migrate`
+      - key: SPROUT_DB_AUTO_CREATE
+        value: "true"           # auto-create schema; or run `sprout-registry migrate`
 
       # ── Inter-service URLs — all local to this one container ──
       - key: REGISTRY_URL
@@ -46,11 +46,11 @@ services:
         value: http://127.0.0.1:8002
       - key: TOOL_EXECUTOR_URL
         value: http://127.0.0.1:8767
-      - key: KILN_REGISTRY_URL
+      - key: SPROUT_REGISTRY_URL
         value: http://127.0.0.1:8766
-      - key: KILN_CALLBACK_URL
+      - key: SPROUT_CALLBACK_URL
         value: http://127.0.0.1:8766/synthesis/callback
-      - key: KILN_SYNTHESIS_CALLBACK_URL
+      - key: SPROUT_SYNTHESIS_CALLBACK_URL
         value: http://127.0.0.1:8766/synthesis/callback
 
       # ── LLM providers: NVIDIA NIM primary, Mistral fallback ──
@@ -58,13 +58,13 @@ services:
         sync: false             # ← primary (NVIDIA NIM / GLM-5.2)
       - key: MISTRAL_API_KEY
         sync: false             # ← fallback + synthesis (Codestral)
-      - key: KILN_LLM_PRIMARY
+      - key: SPROUT_LLM_PRIMARY
         value: nim              # "nim" or "mistral"
-      - key: KILN_NIM_MODEL
+      - key: SPROUT_NIM_MODEL
         value: z-ai/glm-5.2     # must support OpenAI tool-calling
 
       # ── Other secrets & deploy-specific config (set in the dashboard) ──
-      - key: KILN_INTERNAL_SECRET
+      - key: SPROUT_INTERNAL_SECRET
         generateValue: true     # Render generates a strong value
       - key: CORS_ORIGINS
         sync: false             # ← your Vercel URL(s), comma-separated
@@ -72,18 +72,18 @@ services:
         sync: false
       - key: CLERK_SECRET_KEY
         sync: false
-      # KILN_MCP_ISSUER_URL is derived automatically from Render's injected
-      # RENDER_EXTERNAL_URL (+ /mcp) — see kiln_mcp/main.py:_resolve_issuer_url.
+      # SPROUT_MCP_ISSUER_URL is derived automatically from Render's injected
+      # RENDER_EXTERNAL_URL (+ /mcp) — see sprout_mcp/main.py:_resolve_issuer_url.
       # Set it only to override (e.g. a custom domain).
 
   # Redis / Key Value — used by chat_backend's leader lock and rate limiting.
   - type: keyvalue
-    name: kiln-redis
+    name: sprout-redis
     plan: free
     region: oregon
     ipAllowList: []             # internal-only (no public access)
 
 databases:
-  - name: kiln-postgres
+  - name: sprout-postgres
     plan: basic-256mb           # `free` also works for testing (expires in 30 days)
     region: oregon

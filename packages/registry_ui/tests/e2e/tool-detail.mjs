@@ -2,7 +2,7 @@
 // fetch (registry_api GET /tools/{id}) renders into the expected
 // hero — name in h1, version badge, description paragraph.
 //
-// Uses com.kiln.tools.current_date because that's the same fixture
+// Uses com.sprout.tools.current_date because that's the same fixture
 // the Python test_loader and test_main suites pin.
 //
 // Run:   node packages/registry_ui/tests/e2e/tool-detail.mjs
@@ -11,7 +11,7 @@ import { preflightHealthChecks, runTest } from './_lib.mjs'
 
 await preflightHealthChecks(['registry_ui', 'registry_api'])
 
-const TOOL_ID = 'com.kiln.tools.current_date'
+const TOOL_ID = 'com.sprout.tools.current_date'
 const URL = `http://localhost:3001/tools/${TOOL_ID}`
 
 const ok = await runTest('tool-detail', async ({ page }) => {

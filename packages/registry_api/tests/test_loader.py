@@ -1,4 +1,4 @@
-"""Smoke tests for ``KilnLoader``.
+"""Smoke tests for ``SproutLoader``.
 
 These tests load real tool fixtures from the on-disk ``registry/tools/``
 directory rather than constructed in-memory specs. That mirrors how the
@@ -12,17 +12,17 @@ from pathlib import Path
 
 import pytest
 
-from kiln_registry.loader import KilnLoader
-from kiln_shared.spec import KilnTool
+from sprout_registry.loader import SproutLoader
+from sprout_shared.spec import SproutTool
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CURRENT_DATE_DIR = REPO_ROOT / "registry" / "tools" / "com.kiln.tools.current_date" / "1.0.0"
+CURRENT_DATE_DIR = REPO_ROOT / "registry" / "tools" / "com.sprout.tools.current_date" / "1.0.0"
 
 
 @pytest.fixture
-def loader() -> KilnLoader:
+def loader() -> SproutLoader:
     """A loader with auto_register disabled so the global registry stays clean."""
-    return KilnLoader(auto_register=False)
+    return SproutLoader(auto_register=False)
 
 
 def test_current_date_dir_exists() -> None:
@@ -36,18 +36,18 @@ def test_current_date_dir_exists() -> None:
     assert (CURRENT_DATE_DIR / "impl.py").is_file()
 
 
-def test_loader_loads_current_date(loader: KilnLoader) -> None:
-    """Loading current_date returns a fully-formed KilnTool."""
+def test_loader_loads_current_date(loader: SproutLoader) -> None:
+    """Loading current_date returns a fully-formed SproutTool."""
     tool = loader.load(CURRENT_DATE_DIR)
 
-    assert isinstance(tool, KilnTool)
-    assert tool.spec.id == "com.kiln.tools.current_date"
+    assert isinstance(tool, SproutTool)
+    assert tool.spec.id == "com.sprout.tools.current_date"
     assert tool.spec.name == "current_date"
     assert tool.spec.version == "1.0.0"
     assert callable(tool.fn)
 
 
-def test_loaded_tool_invokes_with_fallback(loader: KilnLoader) -> None:
+def test_loaded_tool_invokes_with_fallback(loader: SproutLoader) -> None:
     """Calling the tool returns a dict with the expected keys.
 
     current_date hits an external API but has a local-time fallback, so

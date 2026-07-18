@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Kiln — single-container BACKEND image for Render.
+# Sprout — single-container BACKEND image for Render.
 #
 # Runs ALL Python microservices in one container behind a Caddy reverse proxy:
 #
@@ -14,8 +14,8 @@
 # The frontend (registry_ui) deploys separately to Vercel.
 #
 # Build locally:
-#   docker build -f docker/Dockerfile.render -t kiln-backend .
-#   docker run --rm -p 8080:8080 -e PORT=8080 --env-file .env kiln-backend
+#   docker build -f docker/Dockerfile.render -t sprout-backend .
+#   docker run --rm -p 8080:8080 -e PORT=8080 --env-file .env sprout-backend
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: install all workspace Python deps into one venv ─────────────────
@@ -36,20 +36,20 @@ COPY packages/tool_executor/pyproject.toml packages/tool_executor/pyproject.toml
 COPY packages/mcp_server/pyproject.toml packages/mcp_server/pyproject.toml
 
 # Stub package modules so the editable workspace build resolves before the
-# real source is copied. py.typed is required by kiln-shared's PEP 561 marker.
-RUN mkdir -p packages/shared/kiln_shared \
-    packages/registry_api/kiln_registry \
-    packages/chat_backend/kiln_chat_backend \
-    packages/mcp_server/kiln_mcp \
-    packages/tool_executor/kiln_executor \
-    packages/synthesis_service/kiln_synthesis && \
-    touch packages/shared/kiln_shared/__init__.py \
-    packages/shared/kiln_shared/py.typed \
-    packages/registry_api/kiln_registry/__init__.py \
-    packages/chat_backend/kiln_chat_backend/__init__.py \
-    packages/mcp_server/kiln_mcp/__init__.py \
-    packages/tool_executor/kiln_executor/__init__.py \
-    packages/synthesis_service/kiln_synthesis/__init__.py
+# real source is copied. py.typed is required by sprout-shared's PEP 561 marker.
+RUN mkdir -p packages/shared/sprout_shared \
+    packages/registry_api/sprout_registry \
+    packages/chat_backend/sprout_chat_backend \
+    packages/mcp_server/sprout_mcp \
+    packages/tool_executor/sprout_executor \
+    packages/synthesis_service/sprout_synthesis && \
+    touch packages/shared/sprout_shared/__init__.py \
+    packages/shared/sprout_shared/py.typed \
+    packages/registry_api/sprout_registry/__init__.py \
+    packages/chat_backend/sprout_chat_backend/__init__.py \
+    packages/mcp_server/sprout_mcp/__init__.py \
+    packages/tool_executor/sprout_executor/__init__.py \
+    packages/synthesis_service/sprout_synthesis/__init__.py
 
 # Install the whole workspace (all 5 services + shared) into /app/.venv.
 # pyyaml (needed by synthesis) is already a dep of shared/registry_api/chat_backend.

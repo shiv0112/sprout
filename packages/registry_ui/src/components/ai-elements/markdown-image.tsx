@@ -19,7 +19,7 @@ type ImgProps = React.ImgHTMLAttributes<HTMLImageElement> & { node?: unknown }
 
 // Two prefixes: the new sanitize-friendly URL produced by the rewriter, plus
 // the legacy custom scheme so old persisted messages keep rendering.
-const LEGACY_PREFIX = "kiln-att://"
+const LEGACY_PREFIX = "sprout-att://"
 
 function extractAttachmentId(src: unknown): string | undefined {
   if (typeof src !== "string") return undefined

@@ -185,7 +185,7 @@ function ApiKeySection() {
           API Key
         </CardTitle>
         <CardDescription>
-          Use your API key to authenticate requests to the Kiln registry from
+          Use your API key to authenticate requests to the Sprout registry from
           your code or CI/CD pipelines.
         </CardDescription>
       </CardHeader>
@@ -295,7 +295,7 @@ function ApiKeySection() {
             <div className="text-center">
               <p className="text-sm font-medium">No API key generated</p>
               <p className="text-xs text-muted-foreground">
-                Generate a key to start using the Kiln API
+                Generate a key to start using the Sprout API
               </p>
             </div>
             <Button

@@ -4,13 +4,13 @@ requires-python = ">=3.12"
 
 [manifest]
 members = [
-    "kiln",
-    "kiln-chat-backend",
-    "kiln-mcp-server",
-    "kiln-registry-api",
-    "kiln-shared",
-    "kiln-synthesis-service",
-    "kiln-tool-executor",
+    "sprout",
+    "sprout-chat-backend",
+    "sprout-mcp-server",
+    "sprout-registry-api",
+    "sprout-shared",
+    "sprout-synthesis-service",
+    "sprout-tool-executor",
 ]
 
 [[package]]
@@ -1466,16 +1466,16 @@ wheels = [
 ]
 
 [[package]]
-name = "kiln"
+name = "sprout"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "kiln-chat-backend" },
-    { name = "kiln-mcp-server" },
-    { name = "kiln-registry-api", extra = ["langchain", "pydantic-ai", "server"] },
-    { name = "kiln-shared", extra = ["server"] },
-    { name = "kiln-synthesis-service" },
-    { name = "kiln-tool-executor" },
+    { name = "sprout-chat-backend" },
+    { name = "sprout-mcp-server" },
+    { name = "sprout-registry-api", extra = ["langchain", "pydantic-ai", "server"] },
+    { name = "sprout-shared", extra = ["server"] },
+    { name = "sprout-synthesis-service" },
+    { name = "sprout-tool-executor" },
 ]
 
 [package.dev-dependencies]
@@ -1491,12 +1491,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "kiln-chat-backend", editable = "packages/chat_backend" },
-    { name = "kiln-mcp-server", editable = "packages/mcp_server" },
-    { name = "kiln-registry-api", extras = ["server", "langchain", "pydantic-ai"], editable = "packages/registry_api" },
-    { name = "kiln-shared", extras = ["server"], editable = "packages/shared" },
-    { name = "kiln-synthesis-service", editable = "packages/synthesis_service" },
-    { name = "kiln-tool-executor", editable = "packages/tool_executor" },
+    { name = "sprout-chat-backend", editable = "packages/chat_backend" },
+    { name = "sprout-mcp-server", editable = "packages/mcp_server" },
+    { name = "sprout-registry-api", extras = ["server", "langchain", "pydantic-ai"], editable = "packages/registry_api" },
+    { name = "sprout-shared", extras = ["server"], editable = "packages/shared" },
+    { name = "sprout-synthesis-service", editable = "packages/synthesis_service" },
+    { name = "sprout-tool-executor", editable = "packages/tool_executor" },
 ]
 
 [package.metadata.requires-dev]
@@ -1511,14 +1511,14 @@ dev = [
 ]
 
 [[package]]
-name = "kiln-chat-backend"
+name = "sprout-chat-backend"
 version = "1.0.0"
 source = { editable = "packages/chat_backend" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "kiln-registry-api" },
-    { name = "kiln-shared", extra = ["server"] },
+    { name = "sprout-registry-api" },
+    { name = "sprout-shared", extra = ["server"] },
     { name = "mistralai" },
     { name = "openai" },
     { name = "pyautogen" },
@@ -1532,8 +1532,8 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "kiln-registry-api", editable = "packages/registry_api" },
-    { name = "kiln-shared", extras = ["server"], editable = "packages/shared" },
+    { name = "sprout-registry-api", editable = "packages/registry_api" },
+    { name = "sprout-shared", extras = ["server"], editable = "packages/shared" },
     { name = "mistralai", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=1.30.0" },
     { name = "pyautogen", specifier = ">=0.2.0,<0.4.0" },
@@ -1544,12 +1544,12 @@ requires-dist = [
 ]
 
 [[package]]
-name = "kiln-mcp-server"
+name = "sprout-mcp-server"
 version = "1.0.0"
 source = { editable = "packages/mcp_server" }
 dependencies = [
     { name = "httpx" },
-    { name = "kiln-shared", extra = ["server"] },
+    { name = "sprout-shared", extra = ["server"] },
     { name = "mcp" },
     { name = "pydantic" },
 ]
@@ -1557,19 +1557,19 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "kiln-shared", extras = ["server"], editable = "packages/shared" },
+    { name = "sprout-shared", extras = ["server"], editable = "packages/shared" },
     { name = "mcp", specifier = ">=1.0.0" },
     { name = "pydantic", specifier = ">=2.0" },
 ]
 
 [[package]]
-name = "kiln-registry-api"
+name = "sprout-registry-api"
 version = "1.0.0"
 source = { editable = "packages/registry_api" }
 dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
-    { name = "kiln-shared" },
+    { name = "sprout-shared" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
 ]
@@ -1583,7 +1583,7 @@ all = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "fastapi" },
-    { name = "kiln-shared", extra = ["server"] },
+    { name = "sprout-shared", extra = ["server"] },
     { name = "langchain-core" },
     { name = "mistralai" },
     { name = "pyautogen" },
@@ -1606,7 +1606,7 @@ server = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "fastapi" },
-    { name = "kiln-shared", extra = ["server"] },
+    { name = "sprout-shared", extra = ["server"] },
     { name = "python-multipart" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
@@ -1620,13 +1620,13 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jsonschema", specifier = ">=4.0" },
-    { name = "kiln-registry-api", extras = ["ag2"], marker = "extra == 'all'", editable = "packages/registry_api" },
-    { name = "kiln-registry-api", extras = ["langchain"], marker = "extra == 'all'", editable = "packages/registry_api" },
-    { name = "kiln-registry-api", extras = ["mistral"], marker = "extra == 'all'", editable = "packages/registry_api" },
-    { name = "kiln-registry-api", extras = ["pydantic-ai"], marker = "extra == 'all'", editable = "packages/registry_api" },
-    { name = "kiln-registry-api", extras = ["server"], marker = "extra == 'all'", editable = "packages/registry_api" },
-    { name = "kiln-shared", editable = "packages/shared" },
-    { name = "kiln-shared", extras = ["server"], marker = "extra == 'server'", editable = "packages/shared" },
+    { name = "sprout-registry-api", extras = ["ag2"], marker = "extra == 'all'", editable = "packages/registry_api" },
+    { name = "sprout-registry-api", extras = ["langchain"], marker = "extra == 'all'", editable = "packages/registry_api" },
+    { name = "sprout-registry-api", extras = ["mistral"], marker = "extra == 'all'", editable = "packages/registry_api" },
+    { name = "sprout-registry-api", extras = ["pydantic-ai"], marker = "extra == 'all'", editable = "packages/registry_api" },
+    { name = "sprout-registry-api", extras = ["server"], marker = "extra == 'all'", editable = "packages/registry_api" },
+    { name = "sprout-shared", editable = "packages/shared" },
+    { name = "sprout-shared", extras = ["server"], marker = "extra == 'server'", editable = "packages/shared" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.3.0" },
     { name = "mistralai", marker = "extra == 'mistral'", specifier = ">=1.0.0" },
     { name = "pyautogen", marker = "extra == 'ag2'", specifier = ">=0.3.0" },
@@ -1640,7 +1640,7 @@ requires-dist = [
 provides-extras = ["server", "langchain", "ag2", "pydantic-ai", "mistral", "all"]
 
 [[package]]
-name = "kiln-shared"
+name = "sprout-shared"
 version = "1.0.0"
 source = { editable = "packages/shared" }
 dependencies = [
@@ -1676,7 +1676,7 @@ requires-dist = [
 provides-extras = ["server"]
 
 [[package]]
-name = "kiln-synthesis-service"
+name = "sprout-synthesis-service"
 version = "1.0.0"
 source = { editable = "packages/synthesis_service" }
 dependencies = [
@@ -1697,12 +1697,12 @@ requires-dist = [
 ]
 
 [[package]]
-name = "kiln-tool-executor"
+name = "sprout-tool-executor"
 version = "1.0.0"
 source = { editable = "packages/tool_executor" }
 dependencies = [
     { name = "fastapi" },
-    { name = "kiln-shared", extra = ["server"] },
+    { name = "sprout-shared", extra = ["server"] },
     { name = "pydantic" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1710,7 +1710,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "kiln-shared", extras = ["server"], editable = "packages/shared" },
+    { name = "sprout-shared", extras = ["server"], editable = "packages/shared" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]

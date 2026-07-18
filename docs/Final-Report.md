@@ -1,16 +1,14 @@
-# Kiln: A Self-Evolving Tool Registry for Autonomous AI Agents
+# Sprout: A Self-Evolving Tool Registry for Autonomous AI Agents
 
-**CS5224 Cloud Computing --- Final Report**
+**Final Report**
 
-Shivansh (A0328697H), Arya Bhosale (A0314484A), Himanshu (A0314584B), Sahajpreet (A0313530W), Chun Jie (A0252615J)
-
-National University of Singapore, AY2025/26 Semester 2
+Shivansh, Arya Bhosale, Himanshu, Sahajpreet, Chun Jie
 
 ---
 
 ## 1. Abstract
 
-Kiln is a self-evolving tool registry for autonomous AI agents, deployed on Google Kubernetes Engine (GKE) in GCP's `asia-southeast1` region. The platform enables AI agents to discover, execute, and synthesise tools at runtime via natural language: a planning agent decomposes queries into task DAGs, executes them against a shared registry of 40 tools, and triggers LLM-powered synthesis when a tool is missing. The system comprises six Python microservices and one Next.js frontend, orchestrated across 33 Kubernetes resources on a single `e2-standard-2` node. Infrastructure is fully codified in Terraform (GCP resources) and Tanka/Jsonnet (Kubernetes manifests), with a GitHub Actions pipeline that runs 201 automated tests, builds container images, and deploys to GKE on every push to `main`. Steady-state cost is approximately $70/month on $380 of GCP credits, giving roughly five months of runway.
+Sprout is a self-evolving tool registry for autonomous AI agents, deployed on Google Kubernetes Engine (GKE) in GCP's `asia-southeast1` region. The platform enables AI agents to discover, execute, and synthesise tools at runtime via natural language: a planning agent decomposes queries into task DAGs, executes them against a shared registry of 40 tools, and triggers LLM-powered synthesis when a tool is missing. The system comprises six Python microservices and one Next.js frontend, orchestrated across 33 Kubernetes resources on a single `e2-standard-2` node. Infrastructure is fully codified in Terraform (GCP resources) and Tanka/Jsonnet (Kubernetes manifests), with a GitHub Actions pipeline that runs 201 automated tests, builds container images, and deploys to GKE on every push to `main`. Steady-state cost is approximately $70/month on $380 of GCP credits, giving roughly five months of runway.
 
 ---
 
@@ -22,13 +20,13 @@ Modern AI agents built on frameworks such as LangChain, CrewAI, AutoGen, and Ant
 
 ### 2.2 Proposed Solution
 
-Kiln is a cloud-native SaaS platform that provides AI agents with a self-healing, expanding tool ecosystem. When an agent encounters a task requiring a tool that does not exist, Kiln autonomously synthesises it via LLM-powered code generation inside a gVisor-sandboxed Cloud Run instance, validates the generated code against a multi-stage quality gate (JSON schema validation, test fixture execution, dependency safety checks), registers the tool in the platform's registry, and makes it available at runtime to every agent that connects to the platform via HTTP or MCP. Once created, the tool becomes permanently available with zero downtime and zero human intervention.
+Sprout is a cloud-native SaaS platform that provides AI agents with a self-healing, expanding tool ecosystem. When an agent encounters a task requiring a tool that does not exist, Sprout autonomously synthesises it via LLM-powered code generation inside a gVisor-sandboxed Cloud Run instance, validates the generated code against a multi-stage quality gate (JSON schema validation, test fixture execution, dependency safety checks), registers the tool in the platform's registry, and makes it available at runtime to every agent that connects to the platform via HTTP or MCP. Once created, the tool becomes permanently available with zero downtime and zero human intervention.
 
-Kiln exposes its entire tool library via the Model Context Protocol (MCP specification version 2025-11-25), the emerging open standard for how AI assistants discover and invoke external tools. Any MCP-compatible client --- Claude Desktop, Cursor, VS Code Copilot, Windsurf --- can connect to Kiln's MCP Server and immediately access every tool in the registry. When new tools are synthesised, the MCP Server emits `notifications/tools/list_changed` notifications over the JSON-RPC protocol, prompting all connected AI clients to automatically refresh their tool catalogues without any manual intervention.
+Sprout exposes its entire tool library via the Model Context Protocol (MCP specification version 2025-11-25), the emerging open standard for how AI assistants discover and invoke external tools. Any MCP-compatible client --- Claude Desktop, Cursor, VS Code Copilot, Windsurf --- can connect to Sprout's MCP Server and immediately access every tool in the registry. When new tools are synthesised, the MCP Server emits `notifications/tools/list_changed` notifications over the JSON-RPC protocol, prompting all connected AI clients to automatically refresh their tool catalogues without any manual intervention.
 
 ### 2.3 Why Cloud
 
-Three factors make cloud deployment essential for Kiln:
+Three factors make cloud deployment essential for Sprout:
 
 1. **Global accessibility.** MCP clients and browser users must reach the registry from anywhere. A public endpoint with managed TLS and load balancing is a hard requirement.
 2. **Managed infrastructure.** Operating PostgreSQL, Redis, container orchestration, and a CI/CD pipeline on bare metal would consume the team's entire bandwidth. GKE, Artifact Registry, and GitHub Actions eliminate that overhead.
@@ -40,7 +38,7 @@ Three factors make cloud deployment essential for Kiln:
 
 ### 3.1 Overview
 
-Kiln follows a microservices architecture deployed on a single GKE cluster. The frontend communicates with backend services through a GCE Ingress that routes traffic based on hostname. All backend services share a PostgreSQL database and a Redis instance for coordination.
+Sprout follows a microservices architecture deployed on a single GKE cluster. The frontend communicates with backend services through a GCE Ingress that routes traffic based on hostname. All backend services share a PostgreSQL database and a Redis instance for coordination.
 
 ```
                         Internet
@@ -50,7 +48,7 @@ Kiln follows a microservices architecture deployed on a single GKE cluster. The 
                            |
           +-------+--------+--------+--------+---------+
           |       |        |        |        |         |
-       kiln.*  api.*    chat.*   mcp.*   grafana.*
+       sprout.*  api.*    chat.*   mcp.*   grafana.*
           |       |        |        |        |         
    [registry  [registry [chat   [mcp     [grafana]
      -ui]       -api]   backend] server]             
@@ -71,7 +69,7 @@ Kiln follows a microservices architecture deployed on a single GKE cluster. The 
 
 1. User sends a natural language query via the React frontend to `chat-backend`.
 2. The planning agent (Mistral Large) decomposes the query into a directed acyclic graph (DAG) of subtasks.
-3. `KilnGraphFlow` executes the DAG in topological order via Kahn's algorithm, calling `registry-api` for each tool invocation.
+3. `SproutGraphFlow` executes the DAG in topological order via Kahn's algorithm, calling `registry-api` for each tool invocation.
 4. `registry-api` loads the tool spec from its in-memory cache, executes the Python implementation, and returns the result.
 5. Progress events stream back to the frontend via Server-Sent Events (SSE).
 6. If a required tool is missing, `chat-backend` triggers `synthesis-service`, which generates a `spec.yaml` + `impl.py` via Mistral Vibe CLI and registers the new tool via an HTTP callback to `registry-api`.
@@ -110,11 +108,11 @@ The frontend is a Next.js 16 application using the App Router, React 19, TypeScr
 | **GCS** | Google Cloud Storage bucket | Per-user tool artifacts (`spec.yaml`, `impl.py`, `requirements.txt`) | Versioning enabled, lifecycle rule retains 5 versions |
 | **GCS (backups)** | Separate GCS bucket | PostgreSQL backup dumps | 14-day lifecycle deletion |
 
-The database layer (`kiln_registry/db.py`) uses SQLAlchemy 2.0 with `asyncpg` for PostgreSQL and falls back to `aiosqlite` for local development, making the codebase zero-config for developers while fully async in production. Schema changes are managed via Alembic migrations, applied by a Kubernetes init container before the `registry-api` pod starts --- replacing the preliminary report's `create_all()` approach, which risked data loss on schema changes.
+The database layer (`sprout_registry/db.py`) uses SQLAlchemy 2.0 with `asyncpg` for PostgreSQL and falls back to `aiosqlite` for local development, making the codebase zero-config for developers while fully async in production. Schema changes are managed via Alembic migrations, applied by a Kubernetes init container before the `registry-api` pod starts --- replacing the preliminary report's `create_all()` approach, which risked data loss on schema changes.
 
 ### 3.5 MCP Integration
 
-The MCP Server (`kiln_mcp`, port 8768) bridges the Model Context Protocol (version 2025-11-25) to Kiln's REST API. It exposes every registered tool as an MCP tool via `tools/list` and `tools/call`, supports the streamable-http transport for persistent connections, and emits `notifications/tools/list_changed` when the tool catalogue changes (e.g., after a synthesis completes). This allows any MCP-compatible AI assistant to use Kiln tools without installing anything --- they connect to a single endpoint and the full catalogue is immediately available. The server includes an OAuth 2.1 provider backed by Clerk for client authentication.
+The MCP Server (`sprout_mcp`, port 8768) bridges the Model Context Protocol (version 2025-11-25) to Sprout's REST API. It exposes every registered tool as an MCP tool via `tools/list` and `tools/call`, supports the streamable-http transport for persistent connections, and emits `notifications/tools/list_changed` when the tool catalogue changes (e.g., after a synthesis completes). This allows any MCP-compatible AI assistant to use Sprout tools without installing anything --- they connect to a single endpoint and the full catalogue is immediately available. The server includes an OAuth 2.1 provider backed by Clerk for client authentication.
 
 ---
 
@@ -164,7 +162,7 @@ Total: **33 Kubernetes resources**, all generated from parameterised Jsonnet tem
 
 | Hostname Pattern | Backend |
 |-----------------|---------|
-| `kiln.<IP>.nip.io` | registry-ui (port 3000) |
+| `sprout.<IP>.nip.io` | registry-ui (port 3000) |
 | `api.<IP>.nip.io` | registry-api (port 8766) |
 | `chat.<IP>.nip.io` | chat-backend (port 8765) |
 | `mcp.<IP>.nip.io` | mcp-server (port 8768) |
@@ -189,13 +187,13 @@ The observability stack runs entirely in-cluster to avoid the cost of GCP's mana
 **Grafana** (Deployment, port 3001):
 - Pre-configured with Prometheus as the default datasource via provisioning ConfigMaps.
 - Accessible externally via the `grafana.<IP>.nip.io` Ingress host.
-- Password sourced from the `kiln-secrets` Kubernetes Secret.
+- Password sourced from the `sprout-secrets` Kubernetes Secret.
 
-**Application metrics** (`kiln_shared/metrics.py`):
+**Application metrics** (`sprout_shared/metrics.py`):
 - Every Python service exposes a `/metrics` endpoint via `prometheus_client`.
 - Two custom metrics:
-  - `kiln_http_requests_total` (Counter): total requests labelled by service, method, path, and status code.
-  - `kiln_http_request_duration_seconds` (Histogram): request latency with buckets from 10ms to 10s.
+  - `sprout_http_requests_total` (Counter): total requests labelled by service, method, path, and status code.
+  - `sprout_http_request_duration_seconds` (Histogram): request latency with buckets from 10ms to 10s.
 - Metrics middleware is mounted via `mount_metrics(app, service_name)` in each service's FastAPI application.
 
 ### 4.5 CI/CD Pipeline
@@ -220,13 +218,13 @@ push to main
 
 **Build.** A single multi-stage Dockerfile (`docker/Dockerfile.python.prod`) is parameterised with `SERVICE`, `MODULE`, and `PORT` build args, producing five distinct images from one template. The Next.js frontend has its own Dockerfile (`docker/Dockerfile.nextjs.prod`). All images are pushed to Artifact Registry with both `<sha>` and `latest` tags. Builds use GitHub Actions cache (`type=gha`) for Docker layer reuse.
 
-**Deploy.** The deploy job installs Tanka and Jsonnet Bundler, fetches GKE credentials, verifies that the `kiln-secrets` Secret exists, then runs `tk apply` with external variables for image tag, registry URL, and infrastructure references. After applying, it verifies rollout status for all five application deployments with a 120-second timeout.
+**Deploy.** The deploy job installs Tanka and Jsonnet Bundler, fetches GKE credentials, verifies that the `sprout-secrets` Secret exists, then runs `tk apply` with external variables for image tag, registry URL, and infrastructure references. After applying, it verifies rollout status for all five application deployments with a 120-second timeout.
 
 ### 4.6 Security
 
 **Workload Identity Federation.** Both the CI/CD pipeline and in-cluster workloads use WIF to authenticate to GCP. The CI service account has `artifactregistry.writer` and `container.developer` roles. The workload service account has `storage.objectAdmin` on the tools bucket and `storage.objectCreator` on the backup bucket.
 
-**Kubernetes Secrets.** Sensitive values (database password, API keys, Grafana password) are stored in a `kiln-secrets` Kubernetes Secret, created manually before the first deploy. The CI pipeline verifies its existence as a preflight check.
+**Kubernetes Secrets.** Sensitive values (database password, API keys, Grafana password) are stored in a `sprout-secrets` Kubernetes Secret, created manually before the first deploy. The CI pipeline verifies its existence as a preflight check.
 
 **NetworkPolicies.** As described in Section 4.3, egress-only policies on the synthesis and executor services restrict outbound traffic to known destinations.
 
@@ -236,7 +234,7 @@ push to main
 - If another replica already holds the lock, the new pod exits immediately with `sys.exit(1)`, surfacing as a Kubernetes `CrashLoopBackOff`.
 - If the heartbeat ever loses the lock (expiry, eviction, or hijack), the process terminates with `os._exit(1)` to avoid split-brain traffic.
 
-**Non-root containers.** The production Dockerfile creates a dedicated `kiln` user and runs the application as that user.
+**Non-root containers.** The production Dockerfile creates a dedicated `sprout` user and runs the application as that user.
 
 ---
 
@@ -346,7 +344,7 @@ The project spanned 7 weeks from initial commit (1 March 2026) to final deployme
 |------|-------|-------------|
 | 1 | 1--7 Mar | Initial monorepo scaffolding (Babel). Docker-compose development environment. Registry API with CRUD, full-text search. Chat UI and Registry UI prototypes. Clerk authentication integration across frontend and backend. |
 | 2 | 8--14 Mar | SQLAlchemy 2.0 async database layer (PostgreSQL + SQLite fallback). Health checks across all services. Structured logging. Tool statistics endpoint. Synthesis pipeline debugging. |
-| 3 | 15--21 Mar | Rebrand from Babel to Kiln. Nx monorepo restructure. |
+| 3 | 15--21 Mar | Rebrand from Babel to Sprout. Nx monorepo restructure. |
 | 4 | 22--28 Mar | MCP Server implementation (JSON-RPC bridge, OAuth 2.1 provider, Clerk callback). 11 new keyless tools. Next.js rebuild (from Vite SPA to App Router with SSR). PyPI packaging. |
 | 5 | 29 Mar--4 Apr | Chat rewrite with Vercel AI SDK. DAG visualisation. Tool Executor service stub. Major UI polish (glass-morphism navbar, dark theme). CORS consolidation into shared module. Mistral 429 retry logic. |
 | 6 | 5--11 Apr | Landing page redesign. Semantic tool search (BM25 index + Mistral embeddings). MCP tool creation via client-LLM-authored specs. Env var safety analysis (AST-based detection, allowlist, sandbox contract). |
@@ -383,7 +381,7 @@ For a production deployment, Cloud SQL would be the correct choice. For a course
 
 ## 10. Conclusion
 
-Kiln demonstrates that a self-evolving tool registry for AI agents can be deployed as a cost-effective cloud-native application on Google Cloud Platform. The system serves 40 tools to any MCP-compatible AI assistant, synthesises new tools on demand via LLM code generation, and provides a chat interface with real-time DAG execution visualisation.
+Sprout demonstrates that a self-evolving tool registry for AI agents can be deployed as a cost-effective cloud-native application on Google Cloud Platform. The system serves 40 tools to any MCP-compatible AI assistant, synthesises new tools on demand via LLM code generation, and provides a chat interface with real-time DAG execution visualisation.
 
 The final architecture --- six microservices on GKE Standard with in-cluster PostgreSQL, Redis, Prometheus, and Grafana --- diverges significantly from the preliminary Cloud Run proposal. This shift was driven by practical constraints: the need for init containers (Alembic migrations), NetworkPolicies (synthesis sandboxing), and custom observability, all of which are unavailable or more complex on Cloud Run. The trade-off is a higher steady-state cost ($70/month vs the projected $38/month) offset by greater operational control and simpler debugging.
 

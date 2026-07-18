@@ -483,7 +483,7 @@ export function CatalogClient({
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Tools</h1>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            Discover and run any tool in the Kiln registry.
+            Discover and run any tool in the Sprout registry.
           </p>
         </div>
         {tools.length > 0 && (
@@ -643,7 +643,7 @@ export function CatalogClient({
           <div className="max-w-sm space-y-2">
             <h3 className="text-lg font-semibold">No tools registered yet</h3>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Be the first to publish a tool to the Kiln registry.
+              Be the first to publish a tool to the Sprout registry.
             </p>
           </div>
           <Link href="/publish">

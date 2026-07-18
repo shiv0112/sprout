@@ -1,0 +1,58 @@
+sprout_version: "1.0"
+
+tool:
+  id: com.sprout.tools.github_repo_info
+  name: github_repo_info
+  version: 1.0.0
+  description: "Rich dossier on any public GitHub repo: stars, forks, license, language breakdown, top contributors, recent commits, latest release, and a README excerpt. Anonymous REST — no token required."
+  author: sprout
+
+interface:
+  inputs:
+    - name: repo
+      type: string
+      description: "'owner/name' or a full github.com URL."
+      required: true
+    - name: readme_chars
+      type: integer
+      description: "Max README characters to include."
+      required: false
+      default: 1500
+    - name: contributors
+      type: integer
+      description: "Top N contributors to include (1-20)."
+      required: false
+      default: 5
+  outputs:
+    - name: success
+      type: boolean
+    - name: full_name
+      type: string
+    - name: stars
+      type: integer
+    - name: forks
+      type: integer
+    - name: contributors
+      type: array
+    - name: recent_commits
+      type: array
+    - name: readme_excerpt
+      type: string
+
+implementation:
+  runtime: python3.10
+  entrypoint: github_repo_info.py
+  dependencies:
+    - requests>=2.28.0
+
+testing:
+  fixtures:
+    - input:
+        repo: "facebook/react"
+        readme_chars: 500
+        contributors: 3
+      expected_output_contains: [success, full_name, stars, contributors]
+
+metadata:
+  tags: [github, code, developer, no-api-key]
+  category: data

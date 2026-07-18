@@ -16,7 +16,7 @@ import {
   ArrowUpRight,
   Check,
   Cpu,
-  Flame,
+  Sprout,
   Lock,
   Network,
   Package,
@@ -190,8 +190,8 @@ function Hero({ toolCount }: { toolCount: number }) {
           transition={{ duration: 0.7, delay: 0.4 }}
           className="mx-auto mt-7 max-w-2xl text-balance text-[15px] leading-relaxed text-muted-foreground/80 sm:text-base"
         >
-          Kiln is a self-evolving tool registry for AI agents. Ask anything — if
-          the right tool doesn&rsquo;t exist, Kiln writes it, tests it, and ships it
+          Sprout is a self-evolving tool registry for AI agents. Ask anything — if
+          the right tool doesn&rsquo;t exist, Sprout writes it, tests it, and ships it
           to every framework. Live. No restarts.
         </motion.p>
 
@@ -274,7 +274,7 @@ function Hero({ toolCount }: { toolCount: number }) {
           <div className="absolute inset-0 m-auto flex size-12 items-center justify-center">
             <span className="absolute -inset-3 animate-pulse rounded-2xl bg-primary/25 blur-2xl" />
             <div className="relative flex size-12 items-center justify-center rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/30 to-primary/5 backdrop-blur">
-              <Flame className="size-5 text-primary" />
+              <Sprout className="size-5 text-primary" />
             </div>
           </div>
         </div>
@@ -683,7 +683,7 @@ function FinalCta() {
           </span>
         </h2>
         <p className="mx-auto mt-7 max-w-xl text-[14.5px] leading-relaxed text-muted-foreground/80">
-          Plug Kiln in once. Every agent on your team gets a registry that grows
+          Plug Sprout in once. Every agent on your team gets a registry that grows
           itself — safely, version-controlled, and observable.
         </p>
 

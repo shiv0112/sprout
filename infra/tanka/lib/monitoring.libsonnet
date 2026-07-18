@@ -72,7 +72,7 @@ local volumeMount = k.core.v1.volumeMount;
     statefulSet.new('prometheus', replicas=1, containers=[promContainer], volumeClaims=[promPvc])
     + statefulSet.metadata.withNamespace($._config.namespace)
     + statefulSet.spec.withServiceName('prometheus')
-    + statefulSet.spec.template.spec.withServiceAccountName('kiln-sa')
+    + statefulSet.spec.template.spec.withServiceAccountName('sprout-sa')
     + statefulSet.spec.template.spec.securityContext.withFsGroup(65534)
     + statefulSet.spec.template.spec.securityContext.withRunAsUser(65534)
     + statefulSet.spec.template.spec.withVolumesMixin([
@@ -95,7 +95,7 @@ local volumeMount = k.core.v1.volumeMount;
 
     deployment.new('kube-state-metrics', replicas=1, containers=[ksmContainer])
     + deployment.metadata.withNamespace($._config.namespace)
-    + deployment.spec.template.spec.withServiceAccountName('kiln-sa'),
+    + deployment.spec.template.spec.withServiceAccountName('sprout-sa'),
 
   kube_state_metrics_service:
     service.new('kube-state-metrics', { name: 'kube-state-metrics' }, [{ port: 8080, targetPort: 8080 }])
@@ -135,7 +135,7 @@ local volumeMount = k.core.v1.volumeMount;
       + container.withPorts([k.core.v1.containerPort.new(3001)])
       + container.withEnvMixin([
         k.core.v1.envVar.new('GF_SERVER_HTTP_PORT', '3001'),
-        k.core.v1.envVar.fromSecretRef('GF_SECURITY_ADMIN_PASSWORD', 'kiln-secrets', 'GRAFANA_PASSWORD'),
+        k.core.v1.envVar.fromSecretRef('GF_SECURITY_ADMIN_PASSWORD', 'sprout-secrets', 'GRAFANA_PASSWORD'),
       ])
       + container.withVolumeMountsMixin([
         volumeMount.new('datasources', '/etc/grafana/provisioning/datasources'),

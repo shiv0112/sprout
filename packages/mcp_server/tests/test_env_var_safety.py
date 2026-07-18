@@ -1,4 +1,4 @@
-"""Tests for env-var awareness and sandbox safety in kiln_mcp.creation.
+"""Tests for env-var awareness and sandbox safety in sprout_mcp.creation.
 
 Covers the three mechanisms added to close the silent-secret-consumption gap:
 
@@ -14,7 +14,7 @@ import ast
 import pytest
 import yaml
 
-from kiln_mcp.creation import (
+from sprout_mcp.creation import (
     EnvVarScan,
     ToolCreationError,
     build_spec_yaml,
@@ -23,7 +23,7 @@ from kiln_mcp.creation import (
     reconcile_env_vars,
     validate_impl_defines_function,
 )
-from kiln_shared.env_allowlist import PROVIDER_ENV_ALLOWLIST
+from sprout_shared.env_allowlist import PROVIDER_ENV_ALLOWLIST
 
 # ── AST detection ──────────────────────────────────────────────────────────────
 
@@ -215,7 +215,7 @@ def test_reconcile_allows_unused_declaration() -> None:
 
 def _sample_spec(**overrides):
     defaults = dict(
-        tool_id="com.kiln.tools.sample",
+        tool_id="com.sprout.tools.sample",
         name="sample",
         description="A sample tool that exercises required_env_vars.",
         params=[{"name": "q", "type": "str", "description": "Q", "required": True}],
@@ -243,7 +243,7 @@ def test_build_spec_yaml_defaults_to_empty_list() -> None:
 
 
 def test_build_spec_yaml_rejects_non_allowlisted_name() -> None:
-    with pytest.raises(ToolCreationError, match="not in the Kiln provider allowlist"):
+    with pytest.raises(ToolCreationError, match="not in the Sprout provider allowlist"):
         _sample_spec(required_env_vars=["AWS_SECRET_ACCESS_KEY"])
 
 

@@ -6,17 +6,17 @@
 
 ## Problem
 
-Kiln lets any authenticated user create a tool via the MCP server's `kiln_create_tool`, and any other user can then invoke it. When a tool needs secrets (e.g. `OPENAI_API_KEY`), three gaps exist today:
+Sprout lets any authenticated user create a tool via the MCP server's `sprout_create_tool`, and any other user can then invoke it. When a tool needs secrets (e.g. `OPENAI_API_KEY`), three gaps exist today:
 
-1. **Silent creation.** `kiln_create_tool` inspects impl only for syntax and a top-level function definition. If the generated Python reads `os.environ["OPENAI_API_KEY"]`, nothing tells the AI client (and therefore the human user) that a key needs to be configured in Kiln before the tool can run.
-2. **Undeclared secret consumption.** The sandbox at execution time currently injects the invoking user's full `tool_env_vars` dict from Clerk `private_metadata` (see `packages/mcp_server/kiln_mcp/user_env.py:15`). A malicious or careless tool author can therefore read any env var the invoking user has set — including ones the author never "declared." There is no server-side contract about which vars a tool is allowed to touch.
+1. **Silent creation.** `sprout_create_tool` inspects impl only for syntax and a top-level function definition. If the generated Python reads `os.environ["OPENAI_API_KEY"]`, nothing tells the AI client (and therefore the human user) that a key needs to be configured in Sprout before the tool can run.
+2. **Undeclared secret consumption.** The sandbox at execution time currently injects the invoking user's full `tool_env_vars` dict from Clerk `private_metadata` (see `packages/mcp_server/sprout_mcp/user_env.py:15`). A malicious or careless tool author can therefore read any env var the invoking user has set — including ones the author never "declared." There is no server-side contract about which vars a tool is allowed to touch.
 3. **No provider allowlist.** A tool can declare (explicitly or implicitly) any env var name it likes. A bad actor can publish a tool that references `AWS_SECRET_ACCESS_KEY` or `GITHUB_TOKEN` and hope some user has them set.
 
 Each user bringing their own keys (confirmed — `fetch_user_env_vars(user_id)` uses the invoking user's Clerk ID, not the author's) is the right baseline model, but it only isolates *whose* keys load — not *what code* sees them once loaded.
 
 ## Goals
 
-- **G1.** When `kiln_create_tool` returns, the AI client receives a structured list of env vars the tool needs and which of them the creator has already set, so it can tell the user what to configure next.
+- **G1.** When `sprout_create_tool` returns, the AI client receives a structured list of env vars the tool needs and which of them the creator has already set, so it can tell the user what to configure next.
 - **G2.** The sandbox injects only env vars the tool has **declared** in its spec. Undeclared `os.environ[...]` reads return empty. Declaration becomes the contract.
 - **G3.** Declared env var names must belong to a curated allowlist of known providers. Additions to the allowlist are a registry-side code change, not something a tool author can do via the MCP.
 
@@ -24,7 +24,7 @@ Each user bringing their own keys (confirmed — `fetch_user_env_vars(user_id)` 
 
 - Author-only vs public execution trust tiers. (Deferred — separate spec.)
 - Egress analysis / network-call review for secret-consuming tools. (Deferred.)
-- Automatic key provisioning from the AI client's own environment. (Out of scope — users configure keys via the Kiln UI.)
+- Automatic key provisioning from the AI client's own environment. (Out of scope — users configure keys via the Sprout UI.)
 - Migrating tools registered before this spec. Existing tools continue to work under the old injection model until re-registered; see Migration.
 
 ## Design
@@ -42,7 +42,7 @@ implementation:
     - OPENAI_API_KEY
 ```
 
-Rules (enforced by `packages/mcp_server/kiln_mcp/creation.py:build_spec_yaml` and mirrored in the registry's spec loader):
+Rules (enforced by `packages/mcp_server/sprout_mcp/creation.py:build_spec_yaml` and mirrored in the registry's spec loader):
 
 - Each entry must match `^[A-Z][A-Z0-9_]*$`.
 - Each entry must be in the **provider allowlist** (see §3).
@@ -51,7 +51,7 @@ Rules (enforced by `packages/mcp_server/kiln_mcp/creation.py:build_spec_yaml` an
 
 ### 2. Creation-time detection and reminder
 
-In `kiln_create_tool` (`packages/mcp_server/kiln_mcp/main.py:197`), after `validate_impl_defines_function` and before `submit_to_registry`:
+In `sprout_create_tool` (`packages/mcp_server/sprout_mcp/main.py:197`), after `validate_impl_defines_function` and before `submit_to_registry`:
 
 **a. Scan impl_code via AST** for env var references:
 
@@ -68,7 +68,7 @@ Extract the **literal string** in the first argument / subscript. Non-literal ac
 
 **c. Allowlist check:**
 
-- Any declared var not in the provider allowlist → reject with `ToolCreationError("env var X is not in the Kiln provider allowlist; supported: [...]")`.
+- Any declared var not in the provider allowlist → reject with `ToolCreationError("env var X is not in the Sprout provider allowlist; supported: [...]")`.
 
 **d. Cross-check against creator's saved keys:**
 
@@ -87,7 +87,7 @@ Extract the **literal string** in the first argument / subscript. Non-literal ac
     {"name": "OPENAI_API_KEY", "already_set": false},
     {"name": "STRIPE_SECRET_KEY", "already_set": true}
   ],
-  "setup_hint": "Missing keys can be added at Kiln → Settings → Tool Env Vars. The creator must set them to run the tool; every other invoking user must set their own.",
+  "setup_hint": "Missing keys can be added at Sprout → Settings → Tool Env Vars. The creator must set them to run the tool; every other invoking user must set their own.",
   "mcp_catalog": {...}
 }
 ```
@@ -96,7 +96,7 @@ The AI client's LLM sees the structured fields and phrases the reminder to the u
 
 ### 3. Provider allowlist
 
-Stored as a module-level constant in a new file `packages/shared/kiln_shared/env_allowlist.py`:
+Stored as a module-level constant in a new file `packages/shared/sprout_shared/env_allowlist.py`:
 
 ```python
 PROVIDER_ENV_ALLOWLIST: frozenset[str] = frozenset({
@@ -116,11 +116,11 @@ PROVIDER_ENV_ALLOWLIST: frozenset[str] = frozenset({
 })
 ```
 
-Both `kiln_mcp.creation` and `kiln_registry` import from this shared module. Adding a provider is a one-line PR reviewed by a maintainer — not something an MCP caller can do. Keeping it in `kiln_shared` avoids a registry-HTTP roundtrip during creation validation.
+Both `sprout_mcp.creation` and `sprout_registry` import from this shared module. Adding a provider is a one-line PR reviewed by a maintainer — not something an MCP caller can do. Keeping it in `sprout_shared` avoids a registry-HTTP roundtrip during creation validation.
 
 ### 4. Sandbox injection contract
 
-At tool execution time (registry-side, wherever the sandboxed subprocess is spawned — typically `packages/registry_api/kiln_registry/...`):
+At tool execution time (registry-side, wherever the sandboxed subprocess is spawned — typically `packages/registry_api/sprout_registry/...`):
 
 - Load the tool's parsed `spec.yaml`.
 - Read `implementation.required_env_vars` (default `[]`).
@@ -137,7 +137,7 @@ New tests in `packages/mcp_server/tests/`:
 
 - `test_env_var_detection.py` — AST detection across all four access patterns, including `from os import environ` aliasing; verifies non-literal accesses are ignored; verifies undeclared detected vars are rejected.
 - `test_allowlist.py` — declared var outside allowlist is rejected; allowlist entries pass.
-- `test_creation_env_reminder.py` — full `kiln_create_tool` flow asserts response includes `required_env_vars` with correct `already_set` flags, given a fake Clerk env.
+- `test_creation_env_reminder.py` — full `sprout_create_tool` flow asserts response includes `required_env_vars` with correct `already_set` flags, given a fake Clerk env.
 
 Registry-side tests in `packages/registry_api/tests/`:
 
@@ -156,7 +156,7 @@ Audit output committed as part of the implementation PR so no tool breaks silent
 ## Architecture
 
 ```
-kiln_create_tool (MCP)
+sprout_create_tool (MCP)
   │
   ├── build_spec_yaml ──────────────► validates required_env_vars against allowlist
   │
@@ -184,7 +184,7 @@ kiln_create_tool (MCP)
 - ✅ A tool cannot declare arbitrary env var names to fish for credentials — allowlist is enforced at creation and at registry-side spec load.
 - ✅ The AI client gets structured info at creation to tell the creator which of their own keys to configure.
 - ⚠️ A tool author can still exfiltrate the invoking user's declared key (e.g. log `OPENAI_API_KEY` to a remote server). Mitigating this needs trust tiers + egress review — explicitly deferred.
-- ⚠️ Users must trust the Kiln-maintained allowlist. A compromised maintainer could add a sensitive var. Outside this spec.
+- ⚠️ Users must trust the Sprout-maintained allowlist. A compromised maintainer could add a sensitive var. Outside this spec.
 
 ## Open questions
 

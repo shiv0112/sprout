@@ -21,9 +21,9 @@ COPY packages/synthesis_service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install the shared package with its own runtime dependencies.
-COPY packages/shared/pyproject.toml /tmp/kiln-shared/pyproject.toml
-COPY packages/shared/kiln_shared/ /tmp/kiln-shared/kiln_shared/
-RUN pip install --no-cache-dir /tmp/kiln-shared
+COPY packages/shared/pyproject.toml /tmp/sprout-shared/pyproject.toml
+COPY packages/shared/sprout_shared/ /tmp/sprout-shared/sprout_shared/
+RUN pip install --no-cache-dir /tmp/sprout-shared
 
 # Configure OpenCode
 RUN mkdir -p /root/.config/opencode
@@ -33,13 +33,13 @@ COPY packages/synthesis_service/opencode.json /root/.config/opencode/opencode.js
 RUN mkdir -p /app/logs /tmp/opencode_workspace
 
 # Copy service code and shared package
-COPY packages/synthesis_service/kiln_synthesis/ /app/kiln_synthesis/
-COPY packages/shared/kiln_shared/ /app/kiln_shared/
+COPY packages/synthesis_service/sprout_synthesis/ /app/sprout_synthesis/
+COPY packages/shared/sprout_shared/ /app/sprout_shared/
 
-# KILN_SYNTHESIS_CALLBACK_URL must be injected by the deployer (k8s Deployment env,
-# docker-compose, etc). Settings.callback_url enforces this when KILN_ENV!=dev.
-ENV KILN_SYNTHESIS_LOG_DIR=/app/logs \
-    KILN_SYNTHESIS_WORKSPACE_DIR=/tmp/opencode_workspace \
+# SPROUT_SYNTHESIS_CALLBACK_URL must be injected by the deployer (k8s Deployment env,
+# docker-compose, etc). Settings.callback_url enforces this when SPROUT_ENV!=dev.
+ENV SPROUT_SYNTHESIS_LOG_DIR=/app/logs \
+    SPROUT_SYNTHESIS_WORKSPACE_DIR=/tmp/opencode_workspace \
     PYTHONPATH=/app
 
 EXPOSE 8002
@@ -47,4 +47,4 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')" || exit 1
 
-CMD ["uvicorn", "kiln_synthesis.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "sprout_synthesis.main:app", "--host", "0.0.0.0", "--port", "8002"]

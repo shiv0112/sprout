@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/publish.sh — build + publish kiln-shared and kiln-registry-api to PyPI
+# scripts/publish.sh — build + publish sprout-shared and sprout-registry-api to PyPI
 #
 # Usage:
 #   export UV_PUBLISH_TOKEN="pypi-XXXXX"   # mint at https://pypi.org/manage/account/token/
@@ -12,7 +12,7 @@
 #   3. Runs `twine check` (PyPI's metadata validator)
 #   4. Smoke-tests the wheels in a fresh venv
 #   5. Asks for confirmation
-#   6. Uploads both packages (kiln-shared first, since registry depends on it)
+#   6. Uploads both packages (sprout-shared first, since registry depends on it)
 
 set -euo pipefail
 
@@ -63,8 +63,8 @@ echo "→ Cleaning dist/"
 rm -rf dist
 
 echo "→ Building wheels"
-uv build --package kiln-shared
-uv build --package kiln-registry-api
+uv build --package sprout-shared
+uv build --package sprout-registry-api
 
 echo
 echo "→ Built artefacts:"
@@ -75,15 +75,15 @@ echo "→ Validating metadata with twine check"
 uvx twine check dist/*
 
 echo
-echo "→ Smoke-testing in a clean venv (/tmp/kiln-publish-test)"
-rm -rf /tmp/kiln-publish-test
-python3 -m venv /tmp/kiln-publish-test
-/tmp/kiln-publish-test/bin/pip install --quiet \
-  dist/kiln_shared-*-py3-none-any.whl \
-  dist/kiln_registry_api-*-py3-none-any.whl
-/tmp/kiln-publish-test/bin/python -c "
-from kiln_shared import KilnTool, KilnToolSpec
-from kiln_registry.runtime import KilnRuntime, ADAPTERS
+echo "→ Smoke-testing in a clean venv (/tmp/sprout-publish-test)"
+rm -rf /tmp/sprout-publish-test
+python3 -m venv /tmp/sprout-publish-test
+/tmp/sprout-publish-test/bin/pip install --quiet \
+  dist/sprout_shared-*-py3-none-any.whl \
+  dist/sprout_registry_api-*-py3-none-any.whl
+/tmp/sprout-publish-test/bin/python -c "
+from sprout_shared import SproutTool, SproutToolSpec
+from sprout_registry.runtime import SproutRuntime, ADAPTERS
 assert set(ADAPTERS) == {'ag2', 'langchain', 'pydantic_ai', 'mistral'}
 print('  smoke test passed')
 "
@@ -96,21 +96,21 @@ if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
 fi
 
 echo
-echo "→ Publishing kiln-shared (first — kiln-registry-api depends on it)"
+echo "→ Publishing sprout-shared (first — sprout-registry-api depends on it)"
 # shellcheck disable=SC2086
-uv publish $PUBLISH_URL dist/kiln_shared-*
+uv publish $PUBLISH_URL dist/sprout_shared-*
 
 echo
-echo "→ Publishing kiln-registry-api"
+echo "→ Publishing sprout-registry-api"
 # shellcheck disable=SC2086
-uv publish $PUBLISH_URL dist/kiln_registry_api-*
+uv publish $PUBLISH_URL dist/sprout_registry_api-*
 
 echo
 echo "✓ Done. View at:"
 if [[ -n "$PUBLISH_URL" ]]; then
-  echo "  https://test.pypi.org/project/kiln-shared/"
-  echo "  https://test.pypi.org/project/kiln-registry-api/"
+  echo "  https://test.pypi.org/project/sprout-shared/"
+  echo "  https://test.pypi.org/project/sprout-registry-api/"
 else
-  echo "  https://pypi.org/project/kiln-shared/"
-  echo "  https://pypi.org/project/kiln-registry-api/"
+  echo "  https://pypi.org/project/sprout-shared/"
+  echo "  https://pypi.org/project/sprout-registry-api/"
 fi

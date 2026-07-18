@@ -1,0 +1,45 @@
+sprout_version: "1.0"
+tool:
+  id: com.sprout.tools.fetch_url
+  name: fetch_url
+  version: "1.0.0"
+  description: "Fetch any public URL and return its plain-text content with HTML stripped. Useful for reading articles, docs, or any web page."
+  author: aria
+interface:
+  inputs:
+    - name: url
+      type: string
+      description: "Full URL to fetch, e.g. 'https://example.com/article'"
+      required: true
+    - name: max_chars
+      type: integer
+      description: "Maximum characters to return (default 3000)"
+      required: false
+      default: 3000
+  outputs:
+    - name: title
+      type: string
+      description: Page title from the HTML <title> tag
+    - name: content
+      type: string
+      description: Plain text content with HTML stripped
+    - name: truncated
+      type: boolean
+      description: True if content was cut at max_chars
+    - name: success
+      type: boolean
+implementation:
+  runtime: python3.10
+  entrypoint: fetch_url.py
+  dependencies:
+    - requests>=2.28.0
+    - beautifulsoup4>=4.12.0
+testing:
+  fixtures:
+    - input:
+        url: "https://en.wikipedia.org/wiki/Singapore"
+        max_chars: 500
+      expected_output_contains: [title, content, success]
+metadata:
+  tags: [web, scraping, research]
+  category: research

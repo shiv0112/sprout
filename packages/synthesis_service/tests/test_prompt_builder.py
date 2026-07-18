@@ -6,7 +6,7 @@ inferred as ``dict[str, str]`` by mypy, but the function actually assigned
 ``int``, ``float``, ``bool``, ``list``, and ``dict`` values. Iter 5 fixed
 this by annotating ``sample: dict[str, object]``.
 
-These tests pin the runtime contract — every supported Kiln type must
+These tests pin the runtime contract — every supported Sprout type must
 round-trip through ``json.dumps`` cleanly with the right Python type.
 """
 
@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import json
 
-from kiln_synthesis.models import SynthesizeRequest, ToolInput
-from kiln_synthesis.prompt_builder import _build_test_input
+from sprout_synthesis.models import SynthesizeRequest, ToolInput
+from sprout_synthesis.prompt_builder import _build_test_input
 
 
 def _make_request(inputs: list[ToolInput]) -> SynthesizeRequest:

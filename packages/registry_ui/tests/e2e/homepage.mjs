@@ -19,8 +19,8 @@ const ok = await runTest('homepage', async ({ page, consoleErrors }) => {
   }
 
   const title = await page.title()
-  if (!/kiln/i.test(title)) {
-    throw new Error(`Expected page title to contain "Kiln", got "${title}"`)
+  if (!/sprout/i.test(title)) {
+    throw new Error(`Expected page title to contain "Sprout", got "${title}"`)
   }
 
   // Page-level rendering check: there should be a visible body element

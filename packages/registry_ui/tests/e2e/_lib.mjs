@@ -12,8 +12,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export const SCREENSHOT_DIR = join(__dirname, 'screenshots')
 
 export const SERVICES = {
-  registry_api: { url: 'http://localhost:8766/health', name: 'kiln-registry-api' },
-  chat_backend: { url: 'http://localhost:8765/health', name: 'kiln-chat-backend' },
+  registry_api: { url: 'http://localhost:8766/health', name: 'sprout-registry-api' },
+  chat_backend: { url: 'http://localhost:8765/health', name: 'sprout-chat-backend' },
   registry_ui: { url: 'http://localhost:3001', name: 'registry-ui' },
 }
 

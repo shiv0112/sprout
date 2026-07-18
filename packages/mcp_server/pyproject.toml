@@ -1,10 +1,10 @@
 [project]
-name = "kiln-mcp-server"
+name = "sprout-mcp-server"
 version = "1.0.0"
-description = "Kiln MCP Server - bridges MCP JSON-RPC to the Registry API"
+description = "Sprout MCP Server - bridges MCP JSON-RPC to the Registry API"
 requires-python = ">=3.12"
 dependencies = [
-    "kiln-shared[server]>=1.0.0",
+    "sprout-shared[server]>=1.0.0",
     "mcp>=1.0.0",
     "httpx>=0.27.0",
     "pydantic>=2.0",
@@ -15,7 +15,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["kiln_mcp"]
+packages = ["sprout_mcp"]
 
 [tool.uv.sources]
-kiln-shared = { workspace = true }
+sprout-shared = { workspace = true }

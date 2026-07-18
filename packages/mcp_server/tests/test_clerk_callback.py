@@ -8,9 +8,9 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
-from kiln_mcp.auth.clerk_callback import build_callback_route
-from kiln_mcp.auth.provider import _sign_state
-from kiln_mcp.auth.store import InMemoryOAuthStore
+from sprout_mcp.auth.clerk_callback import build_callback_route
+from sprout_mcp.auth.provider import _sign_state
+from sprout_mcp.auth.store import InMemoryOAuthStore
 
 
 def _encoded_signed_state(payload: dict) -> str:
@@ -57,7 +57,7 @@ def test_missing_clerk_session_returns_401(client: TestClient) -> None:
         "redirect_uri": "http://localhost:3000/callback",
         "redirect_uri_provided_explicitly": True,
         "client_id": "c1",
-        "scopes": ["kiln:tools"],
+        "scopes": ["sprout:tools"],
     })
     resp = client.get(f"/oauth/callback?state={state}")
     assert resp.status_code == 401
@@ -81,11 +81,11 @@ def test_successful_callback_generates_code_and_redirects(
         "redirect_uri": "http://localhost:3000/callback",
         "redirect_uri_provided_explicitly": True,
         "client_id": "c1",
-        "scopes": ["kiln:tools"],
+        "scopes": ["sprout:tools"],
     })
 
     with patch(
-        "kiln_mcp.auth.clerk_callback._resolve_clerk_user",
+        "sprout_mcp.auth.clerk_callback._resolve_clerk_user",
         new_callable=AsyncMock,
         return_value="user_abc",
     ):

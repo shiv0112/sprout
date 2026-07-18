@@ -1,9 +1,9 @@
 /**
- * /api/chat — Bridge between AI SDK v6 chat and Kiln's backend.
+ * /api/chat — Bridge between AI SDK v6 chat and Sprout's backend.
  *
  * AI SDK sends: { messages: [{ parts: [...], role: "user" }] }
- * We extract the last user message, call /kiln/start, connect to the SSE stream,
- * and convert Kiln events to AI SDK UI Message Stream Protocol (text-start/text-delta/text-end).
+ * We extract the last user message, call /sprout/start, connect to the SSE stream,
+ * and convert Sprout events to AI SDK UI Message Stream Protocol (text-start/text-delta/text-end).
  */
 
 const CHAT_BACKEND = process.env.CHAT_BACKEND_INTERNAL || process.env.NEXT_PUBLIC_CHAT_BACKEND || "http://localhost:8765"
@@ -41,8 +41,8 @@ export async function POST(req: Request) {
   if (authHeader) headers["Authorization"] = authHeader
 
   try {
-    // Call Kiln backend with current query + conversation history
-    const res = await fetch(`${CHAT_BACKEND}/kiln/start`, {
+    // Call Sprout backend with current query + conversation history
+    const res = await fetch(`${CHAT_BACKEND}/sprout/start`, {
       method: "POST",
       headers,
       body: JSON.stringify({ request: query, history }),
@@ -62,11 +62,11 @@ export async function POST(req: Request) {
         run_id: data.run_id,
         missing_envs: data.missing_envs,
       })
-      return streamSimpleText(`__KILN_CONFIG__${payload}`)
+      return streamSimpleText(`__SPROUT_CONFIG__${payload}`)
     }
 
     // Stream execution events
-    return streamKilnExecution(data.run_id)
+    return streamSproutExecution(data.run_id)
   } catch (err) {
     return streamSimpleText(`Error: ${err}`)
   }
@@ -89,19 +89,19 @@ function streamSimpleText(text: string): Response {
   return new Response(stream, { headers: SSE_HEADERS })
 }
 
-/** Connect to Kiln's SSE stream and convert to AI SDK UI Message Stream Protocol.
+/** Connect to Sprout's SSE stream and convert to AI SDK UI Message Stream Protocol.
  *
  * Key UX decision: we do NOT stream the noisy intermediate events
  * (`Plan: ...`, `node_x starting`, `tool_call`, etc) as markdown text into
  * the assistant message. Doing so makes the chat look like a debug log.
  *
  * Instead we buffer all intermediate events into a structured "trace" array
- * and emit them as a single hidden ``__KILN_TRACE__{...}__END__`` prefix on
+ * and emit them as a single hidden ``__SPROUT_TRACE__{...}__END__`` prefix on
  * the final delta. The chat page picks that prefix off and renders it as a
  * collapsible "View execution trace" disclosure under the answer. Default
  * view is just the answer — clean and conversational.
  */
-type KilnTraceEvent =
+type SproutTraceEvent =
   | { kind: "plan"; nodes: { id: string; role: string; tools: string[] }[] }
   | { kind: "synthesis_wait"; tool_ids: string[] }
   | { kind: "tool_ready"; tool_id: string }
@@ -111,7 +111,7 @@ type KilnTraceEvent =
   | { kind: "node_complete"; node_id: string }
   | { kind: "synthesis_timeout"; missing: string[] }
 
-function streamKilnExecution(runId: string): Response {
+function streamSproutExecution(runId: string): Response {
   const encoder = new TextEncoder()
   const msgId = `msg_${runId}`
 
@@ -119,7 +119,7 @@ function streamKilnExecution(runId: string): Response {
     async start(controller) {
       let closed = false
       let started = false
-      const trace: KilnTraceEvent[] = []
+      const trace: SproutTraceEvent[] = []
 
       function ensureStarted() {
         if (!started) {
@@ -136,7 +136,7 @@ function streamKilnExecution(runId: string): Response {
         // page strips it off and renders it as a separate disclosure.
         const tracePrefix =
           trace.length > 0
-            ? `__KILN_TRACE__${JSON.stringify(trace)}__END__`
+            ? `__SPROUT_TRACE__${JSON.stringify(trace)}__END__`
             : ""
         const payload = tracePrefix + answer
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: msgId, delta: payload })}\n\n`))
@@ -150,8 +150,8 @@ function streamKilnExecution(runId: string): Response {
         finishWithAnswer(`I hit an error: ${message}`)
       }
 
-      // Connect to Kiln SSE
-      const sseRes = await fetch(`${CHAT_BACKEND}/kiln/stream/${runId}`)
+      // Connect to Sprout SSE
+      const sseRes = await fetch(`${CHAT_BACKEND}/sprout/stream/${runId}`)
       if (!sseRes.ok || !sseRes.body) {
         finishWithError("Could not connect to the execution stream.")
         return
@@ -261,7 +261,7 @@ function buildHistory(messages: Array<{ role: string; content?: string | Array<{
         text = m.parts.find((p) => p.type === "text")?.text || ""
       }
       // Skip config messages
-      if (text.startsWith("__KILN_CONFIG__")) return null
+      if (text.startsWith("__SPROUT_CONFIG__")) return null
       // Truncate long messages
       if (text.length > 500) text = text.slice(0, 500) + "..."
       return text ? `${m.role}: ${text}` : null

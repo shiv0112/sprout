@@ -3,7 +3,7 @@
   "root": "packages/synthesis_service",
   "targets": {
     "dev": {
-      "command": "uv run uvicorn kiln_synthesis.main:app --host 127.0.0.1 --port 8002 --reload"
+      "command": "uv run uvicorn sprout_synthesis.main:app --host 127.0.0.1 --port 8002 --reload"
     },
     "lint": {
       "command": "uv run ruff check packages/synthesis_service"

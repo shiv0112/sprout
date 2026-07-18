@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Kiln backend reverse proxy. Binds Render's $PORT and routes each path prefix
+# Sprout backend reverse proxy. Binds Render's $PORT and routes each path prefix
 # to the matching internal microservice. `handle_path` strips the prefix, so
 # e.g. an external GET /registry/tools reaches registry_api as GET /tools.
 #

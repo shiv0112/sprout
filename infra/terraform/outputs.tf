@@ -1,9 +1,9 @@
 output "gke_cluster_name" {
-  value = google_container_cluster.kiln.name
+  value = google_container_cluster.sprout.name
 }
 
 output "gke_cluster_endpoint" {
-  value     = google_container_cluster.kiln.endpoint
+  value     = google_container_cluster.sprout.endpoint
   sensitive = true
 }
 
@@ -12,7 +12,7 @@ output "gke_cluster_zone" {
 }
 
 output "artifact_registry_url" {
-  value = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.kiln.repository_id}"
+  value = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.sprout.repository_id}"
 }
 
 output "gcs_tools_bucket" {
@@ -24,7 +24,7 @@ output "gcs_pg_backups_bucket" {
 }
 
 output "workload_sa_email" {
-  value = google_service_account.kiln_workload.email
+  value = google_service_account.sprout_workload.email
 }
 
 output "ci_sa_email" {
@@ -36,11 +36,11 @@ output "ingress_static_ip" {
 }
 
 output "nip_io_domain" {
-  value = "kiln.${google_compute_global_address.ingress_ip.address}.nip.io"
+  value = "sprout.${google_compute_global_address.ingress_ip.address}.nip.io"
 }
 
 output "gke_get_credentials" {
-  value = "gcloud container clusters get-credentials ${google_container_cluster.kiln.name} --zone ${var.zone} --project ${var.project_id}"
+  value = "gcloud container clusters get-credentials ${google_container_cluster.sprout.name} --zone ${var.zone} --project ${var.project_id}"
 }
 
 output "wif_provider" {

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from kiln_chat_backend.main import _trivial_response
+from sprout_chat_backend.main import _trivial_response
 
 
 @pytest.mark.parametrize(

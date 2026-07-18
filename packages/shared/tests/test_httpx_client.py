@@ -1,10 +1,10 @@
 """Tests for the request-id-aware httpx client factory.
 
 Pin the contract:
-  - The factory adds X-Kiln-Request-ID to outbound requests automatically
+  - The factory adds X-Sprout-Request-ID to outbound requests automatically
   - The current contextvar value is used when set
   - A fresh UUID is minted when no contextvar is active (background tasks)
-  - A caller-supplied X-Kiln-Request-ID header is preserved (not overwritten)
+  - A caller-supplied X-Sprout-Request-ID header is preserved (not overwritten)
 """
 
 from __future__ import annotations
@@ -12,8 +12,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from kiln_shared.httpx_client import async_client
-from kiln_shared.request_id import REQUEST_ID_HEADER, set_request_id
+from sprout_shared.httpx_client import async_client
+from sprout_shared.request_id import REQUEST_ID_HEADER, set_request_id
 
 
 def _make_transport() -> httpx.MockTransport:

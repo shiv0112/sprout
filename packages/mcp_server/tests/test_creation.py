@@ -1,4 +1,4 @@
-"""Tests for kiln_mcp.creation: the LLM-client-driven tool authoring path.
+"""Tests for sprout_mcp.creation: the LLM-client-driven tool authoring path.
 
 These cover input validation only — submit_to_registry is exercised by the
 end-to-end Puppeteer suite, since it needs a live registry plus the internal
@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from kiln_mcp.creation import (
+from sprout_mcp.creation import (
     ToolCreationError,
     build_spec_yaml,
     validate_impl_defines_function,
@@ -21,7 +21,7 @@ from kiln_mcp.creation import (
 
 def test_build_spec_yaml_round_trips_a_valid_tool() -> None:
     yaml_str = build_spec_yaml(
-        tool_id="com.kiln.tools.sample",
+        tool_id="com.sprout.tools.sample",
         name="sample",
         description="A sample tool",
         params=[
@@ -38,8 +38,8 @@ def test_build_spec_yaml_round_trips_a_valid_tool() -> None:
 
     parsed = yaml.safe_load(yaml_str)
 
-    assert parsed["kiln_version"] == "1.0"
-    assert parsed["tool"]["id"] == "com.kiln.tools.sample"
+    assert parsed["sprout_version"] == "1.0"
+    assert parsed["tool"]["id"] == "com.sprout.tools.sample"
     assert parsed["tool"]["name"] == "sample"
     assert parsed["tool"]["version"] == "1.0.0"
     assert parsed["implementation"]["entrypoint"] == "sample.py"
@@ -85,7 +85,7 @@ def test_build_spec_yaml_rejects_bad_tool_id() -> None:
 def test_build_spec_yaml_rejects_bad_function_name() -> None:
     with pytest.raises(ToolCreationError, match="identifier"):
         build_spec_yaml(
-            tool_id="com.kiln.tools.sample",
+            tool_id="com.sprout.tools.sample",
             name="bad name",
             description="a sufficiently descriptive sentence",
             params=[],
@@ -101,7 +101,7 @@ def test_build_spec_yaml_rejects_bad_function_name() -> None:
 def test_build_spec_yaml_rejects_short_description() -> None:
     with pytest.raises(ToolCreationError, match="10 characters"):
         build_spec_yaml(
-            tool_id="com.kiln.tools.sample",
+            tool_id="com.sprout.tools.sample",
             name="sample",
             description="too short",
             params=[],
@@ -117,7 +117,7 @@ def test_build_spec_yaml_rejects_short_description() -> None:
 def test_build_spec_yaml_rejects_whitespace_only_description() -> None:
     with pytest.raises(ToolCreationError, match="10 characters"):
         build_spec_yaml(
-            tool_id="com.kiln.tools.sample",
+            tool_id="com.sprout.tools.sample",
             name="sample",
             description="   ",
             params=[],
@@ -133,7 +133,7 @@ def test_build_spec_yaml_rejects_whitespace_only_description() -> None:
 def test_build_spec_yaml_rejects_duplicate_param_names() -> None:
     with pytest.raises(ToolCreationError, match="duplicate"):
         build_spec_yaml(
-            tool_id="com.kiln.tools.sample",
+            tool_id="com.sprout.tools.sample",
             name="sample",
             description="a sufficiently descriptive sentence",
             params=[
@@ -152,7 +152,7 @@ def test_build_spec_yaml_rejects_duplicate_param_names() -> None:
 def test_build_spec_yaml_rejects_unsupported_param_type() -> None:
     with pytest.raises(ToolCreationError, match="type must be one of"):
         build_spec_yaml(
-            tool_id="com.kiln.tools.sample",
+            tool_id="com.sprout.tools.sample",
             name="sample",
             description="a sufficiently descriptive sentence",
             params=[{"name": "q", "type": "tuple"}],
@@ -168,7 +168,7 @@ def test_build_spec_yaml_rejects_unsupported_param_type() -> None:
 def test_build_spec_yaml_accepts_python_and_json_schema_types() -> None:
     """LLM clients may pass either `str` or `string`; both should work."""
     yaml_str = build_spec_yaml(
-        tool_id="com.kiln.tools.alias",
+        tool_id="com.sprout.tools.alias",
         name="alias",
         description="Exercises type aliasing between Python and JSON schema",
         params=[
@@ -197,7 +197,7 @@ def test_build_spec_yaml_rejects_required_as_non_boolean() -> None:
     for bad_value in ["false", "true", 0, 1, "no", None]:
         with pytest.raises(ToolCreationError, match="required must be a boolean"):
             build_spec_yaml(
-                tool_id="com.kiln.tools.sample",
+                tool_id="com.sprout.tools.sample",
                 name="sample",
                 description="a sufficiently descriptive sentence",
                 params=[{"name": "q", "type": "str", "required": bad_value}],
@@ -213,7 +213,7 @@ def test_build_spec_yaml_rejects_required_as_non_boolean() -> None:
 def test_build_spec_yaml_rejects_param_with_non_identifier_name() -> None:
     with pytest.raises(ToolCreationError, match="python identifier"):
         build_spec_yaml(
-            tool_id="com.kiln.tools.sample",
+            tool_id="com.sprout.tools.sample",
             name="sample",
             description="a sufficiently descriptive sentence",
             params=[{"name": "bad name", "type": "str"}],

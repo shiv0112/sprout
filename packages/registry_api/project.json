@@ -3,7 +3,7 @@
   "root": "packages/registry_api",
   "targets": {
     "dev": {
-      "command": "uv run uvicorn kiln_registry.main:app --host 127.0.0.1 --port 8766 --reload"
+      "command": "uv run uvicorn sprout_registry.main:app --host 127.0.0.1 --port 8766 --reload"
     },
     "lint": {
       "command": "uv run ruff check packages/registry_api"

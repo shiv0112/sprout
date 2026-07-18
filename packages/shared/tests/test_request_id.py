@@ -1,7 +1,7 @@
-"""Tests for KilnRequestIDMiddleware + the logging filter integration.
+"""Tests for SproutRequestIDMiddleware + the logging filter integration.
 
 Pin the production-readiness contract:
-  - Inbound X-Kiln-Request-ID is honored (chain of services share an ID)
+  - Inbound X-Sprout-Request-ID is honored (chain of services share an ID)
   - Missing inbound header → fresh UUID assigned
   - Response always echoes the header
   - Contextvar carries the ID into log records via the filter
@@ -14,9 +14,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from kiln_shared.request_id import (
+from sprout_shared.request_id import (
     REQUEST_ID_HEADER,
-    KilnRequestIDMiddleware,
+    SproutRequestIDMiddleware,
     RequestIDLoggingFilter,
     current_request_id,
 )
@@ -24,7 +24,7 @@ from kiln_shared.request_id import (
 
 def _build_app() -> FastAPI:
     app = FastAPI()
-    app.add_middleware(KilnRequestIDMiddleware)
+    app.add_middleware(SproutRequestIDMiddleware)
 
     @app.get("/echo")
     def echo() -> dict:
@@ -34,7 +34,7 @@ def _build_app() -> FastAPI:
 
 
 def test_response_echoes_inbound_request_id() -> None:
-    """A client-supplied X-Kiln-Request-ID must be propagated unchanged."""
+    """A client-supplied X-Sprout-Request-ID must be propagated unchanged."""
     client = TestClient(_build_app())
     resp = client.get("/echo", headers={REQUEST_ID_HEADER: "test-fixture-123"})
     assert resp.status_code == 200

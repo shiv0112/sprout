@@ -22,23 +22,23 @@ COPY packages/tool_executor/pyproject.toml packages/tool_executor/pyproject.toml
 COPY packages/synthesis_service/pyproject.toml packages/synthesis_service/pyproject.toml
 
 # Create package dirs so uv can find them.
-# Also touch packages/shared/kiln_shared/py.typed because the kiln-shared
+# Also touch packages/shared/sprout_shared/py.typed because the sprout-shared
 # pyproject.toml has a `[tool.hatch.build.targets.wheel.force-include]` for it
 # (PEP 561 marker), which would otherwise fail the editable wheel build at
 # `uv sync` time when only the empty stub dir exists.
-RUN mkdir -p packages/shared/kiln_shared \
-    packages/registry_api/kiln_registry \
-    packages/chat_backend/kiln_chat_backend \
-    packages/mcp_server/kiln_mcp \
-    packages/tool_executor/kiln_executor \
-    packages/synthesis_service/kiln_synthesis && \
-    touch packages/shared/kiln_shared/__init__.py \
-    packages/shared/kiln_shared/py.typed \
-    packages/registry_api/kiln_registry/__init__.py \
-    packages/chat_backend/kiln_chat_backend/__init__.py \
-    packages/mcp_server/kiln_mcp/__init__.py \
-    packages/tool_executor/kiln_executor/__init__.py \
-    packages/synthesis_service/kiln_synthesis/__init__.py
+RUN mkdir -p packages/shared/sprout_shared \
+    packages/registry_api/sprout_registry \
+    packages/chat_backend/sprout_chat_backend \
+    packages/mcp_server/sprout_mcp \
+    packages/tool_executor/sprout_executor \
+    packages/synthesis_service/sprout_synthesis && \
+    touch packages/shared/sprout_shared/__init__.py \
+    packages/shared/sprout_shared/py.typed \
+    packages/registry_api/sprout_registry/__init__.py \
+    packages/chat_backend/sprout_chat_backend/__init__.py \
+    packages/mcp_server/sprout_mcp/__init__.py \
+    packages/tool_executor/sprout_executor/__init__.py \
+    packages/synthesis_service/sprout_synthesis/__init__.py
 
 RUN uv sync --no-dev
 

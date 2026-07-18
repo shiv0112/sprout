@@ -103,7 +103,7 @@ export function ChatSidebar({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search chats…"
             autoComplete="off"
-            name="kiln-chat-search"
+            name="sprout-chat-search"
             className="h-10 w-full rounded-xl border border-white/8 bg-white/[0.02] py-1.5 pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-all focus:border-primary/20 focus:bg-white/[0.04] focus:ring-2 focus:ring-primary/12"
           />
         </div>

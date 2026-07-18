@@ -60,26 +60,26 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
-      - name: Build kiln-shared
-        run: uv build --package kiln-shared
-      - name: Build kiln-registry-api
-        run: uv build --package kiln-registry-api
+      - name: Build sprout-shared
+        run: uv build --package sprout-shared
+      - name: Build sprout-registry-api
+        run: uv build --package sprout-registry-api
       - name: Validate metadata (twine check)
         run: uvx twine check dist/*
       - name: Smoke-test wheels in a fresh venv
         run: |
           python3 -m venv /tmp/smoketest
-          /tmp/smoketest/bin/pip install dist/kiln_shared-*.whl dist/kiln_registry_api-*.whl
+          /tmp/smoketest/bin/pip install dist/sprout_shared-*.whl dist/sprout_registry_api-*.whl
           /tmp/smoketest/bin/python -c "
-          from kiln_shared import KilnTool, KilnToolSpec
-          from kiln_registry.runtime import KilnRuntime, ADAPTERS
+          from sprout_shared import SproutTool, SproutToolSpec
+          from sprout_registry.runtime import SproutRuntime, ADAPTERS
           assert set(ADAPTERS) == {'ag2', 'langchain', 'pydantic_ai', 'mistral'}, ADAPTERS
           print('smoke OK; targets:', list(ADAPTERS.keys()))
           "
       - name: Upload dist artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: kiln-dist
+          name: sprout-dist
           path: dist/
           retention-days: 14
 
@@ -116,19 +116,19 @@ jobs:
       matrix:
         include:
           - service: registry_api
-            module: kiln_registry.main:app
+            module: sprout_registry.main:app
             port: "8766"
             image: registry-api
           - service: chat_backend
-            module: kiln_chat_backend.main:app
+            module: sprout_chat_backend.main:app
             port: "8765"
             image: chat-backend
           - service: tool_executor
-            module: kiln_executor.main:app
+            module: sprout_executor.main:app
             port: "8767"
             image: tool-executor
           - service: mcp_server
-            module: kiln_mcp.main:app
+            module: sprout_mcp.main:app
             port: "8768"
             image: mcp-server
     steps:
@@ -142,7 +142,7 @@ jobs:
             SERVICE=${{ matrix.service }}
             MODULE=${{ matrix.module }}
             PORT=${{ matrix.port }}
-          tags: kiln-${{ matrix.image }}:ci
+          tags: sprout-${{ matrix.image }}:ci
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -5,13 +5,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: kiln_registry
-      POSTGRES_USER: kiln
-      POSTGRES_PASSWORD: kiln_dev
+      POSTGRES_DB: sprout_registry
+      POSTGRES_USER: sprout
+      POSTGRES_PASSWORD: sprout_dev
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kiln -d kiln_registry"]
+      test: ["CMD-SHELL", "pg_isready -U sprout -d sprout_registry"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -34,16 +34,16 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.python
-    command: uv run uvicorn kiln_registry.main:app --host 0.0.0.0 --port 8766 --reload
+    command: uv run uvicorn sprout_registry.main:app --host 0.0.0.0 --port 8766 --reload
     ports:
       - "8766:8766"
     volumes:
-      - ./packages/shared/kiln_shared:/app/packages/shared/kiln_shared
-      - ./packages/registry_api/kiln_registry:/app/packages/registry_api/kiln_registry
+      - ./packages/shared/sprout_shared:/app/packages/shared/sprout_shared
+      - ./packages/registry_api/sprout_registry:/app/packages/registry_api/sprout_registry
       - ./registry:/app/registry
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://kiln:kiln_dev@postgres:5432/kiln_registry
+      - DATABASE_URL=postgresql://sprout:sprout_dev@postgres:5432/sprout_registry
       - REDIS_URL=redis://redis:6379
       - TOOL_EXECUTOR_URL=http://tool_executor:8767
     healthcheck:
@@ -64,13 +64,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.python
-    command: uv run uvicorn kiln_chat_backend.main:app --host 0.0.0.0 --port 8765 --reload
+    command: uv run uvicorn sprout_chat_backend.main:app --host 0.0.0.0 --port 8765 --reload
     ports:
       - "8765:8765"
     volumes:
-      - ./packages/shared/kiln_shared:/app/packages/shared/kiln_shared
-      - ./packages/chat_backend/kiln_chat_backend:/app/packages/chat_backend/kiln_chat_backend
-      - ./packages/registry_api/kiln_registry:/app/packages/registry_api/kiln_registry
+      - ./packages/shared/sprout_shared:/app/packages/shared/sprout_shared
+      - ./packages/chat_backend/sprout_chat_backend:/app/packages/chat_backend/sprout_chat_backend
+      - ./packages/registry_api/sprout_registry:/app/packages/registry_api/sprout_registry
       - ./registry:/app/registry
     env_file: .env
     environment:
@@ -86,17 +86,17 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.python
-    command: uv run python -m kiln_mcp.main streamable-http
+    command: uv run python -m sprout_mcp.main streamable-http
     ports:
       - "8768:8768"
     volumes:
-      - ./packages/shared/kiln_shared:/app/packages/shared/kiln_shared
-      - ./packages/mcp_server/kiln_mcp:/app/packages/mcp_server/kiln_mcp
+      - ./packages/shared/sprout_shared:/app/packages/shared/sprout_shared
+      - ./packages/mcp_server/sprout_mcp:/app/packages/mcp_server/sprout_mcp
     env_file: .env
     environment:
-      - KILN_REGISTRY_URL=http://registry_api:8766
-      - KILN_MCP_HOST=0.0.0.0
-      - KILN_MCP_ISSUER_URL=${KILN_MCP_ISSUER_URL:-http://localhost:8768}
+      - SPROUT_REGISTRY_URL=http://registry_api:8766
+      - SPROUT_MCP_HOST=0.0.0.0
+      - SPROUT_MCP_ISSUER_URL=${SPROUT_MCP_ISSUER_URL:-http://localhost:8768}
       - CLERK_DOMAIN=${CLERK_DOMAIN:-}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
     depends_on:
@@ -108,12 +108,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.python
-    command: uv run uvicorn kiln_executor.main:app --host 0.0.0.0 --port 8767 --reload
+    command: uv run uvicorn sprout_executor.main:app --host 0.0.0.0 --port 8767 --reload
     ports:
       - "8767:8767"
     volumes:
-      - ./packages/shared/kiln_shared:/app/packages/shared/kiln_shared
-      - ./packages/tool_executor/kiln_executor:/app/packages/tool_executor/kiln_executor
+      - ./packages/shared/sprout_shared:/app/packages/shared/sprout_shared
+      - ./packages/tool_executor/sprout_executor:/app/packages/tool_executor/sprout_executor
     env_file: .env
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8767/health')"]
@@ -131,14 +131,14 @@ services:
     environment:
       - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
-      - KILN_SYNTHESIS_CALLBACK_URL=http://registry_api:8766/synthesis/callback
-      - KILN_SYNTHESIS_INTERNAL_SECRET=${KILN_INTERNAL_SECRET:-}
-      - KILN_SYNTHESIS_OPENCODE_MODEL=${KILN_SYNTHESIS_OPENCODE_MODEL:-mistral/codestral-latest}
+      - SPROUT_SYNTHESIS_CALLBACK_URL=http://registry_api:8766/synthesis/callback
+      - SPROUT_SYNTHESIS_INTERNAL_SECRET=${SPROUT_INTERNAL_SECRET:-}
+      - SPROUT_SYNTHESIS_OPENCODE_MODEL=${SPROUT_SYNTHESIS_OPENCODE_MODEL:-mistral/codestral-latest}
       - PYTHONPATH=/app
     volumes:
       - synthesis_logs:/app/logs
-      - ./packages/synthesis_service/kiln_synthesis:/app/kiln_synthesis
-      - ./packages/shared/kiln_shared:/app/kiln_shared
+      - ./packages/synthesis_service/sprout_synthesis:/app/sprout_synthesis
+      - ./packages/shared/sprout_shared:/app/sprout_shared
     depends_on:
       registry_api:
         condition: service_healthy

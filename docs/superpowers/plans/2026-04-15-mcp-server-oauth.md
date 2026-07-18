@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add OAuth 2.1 with PKCE authentication to the Kiln MCP server (delegating to Clerk for identity), inject user env vars into tool execution, and fix all audited production bugs.
+**Goal:** Add OAuth 2.1 with PKCE authentication to the Sprout MCP server (delegating to Clerk for identity), inject user env vars into tool execution, and fix all audited production bugs.
 
 **Architecture:** The MCP server becomes an OAuth 2.1 Authorization Server using the MCP SDK's OAuthAuthorizationServerProvider. Clerk handles user login via redirect. In-memory stores hold clients, auth codes, and tokens. Tool execution is refactored to carry user context and inject saved env vars from Clerk.
 
@@ -13,19 +13,19 @@
 ## File Structure
 
 ### New files
-- `packages/mcp_server/kiln_mcp/auth/__init__.py` -- empty package init
-- `packages/mcp_server/kiln_mcp/auth/store.py` -- in-memory TTL store for OAuth data
-- `packages/mcp_server/kiln_mcp/auth/provider.py` -- OAuthAuthorizationServerProvider implementation
-- `packages/mcp_server/kiln_mcp/auth/clerk_callback.py` -- Starlette route for Clerk redirect callback
-- `packages/mcp_server/kiln_mcp/tools.py` -- extracted tool registration/execution logic
-- `packages/mcp_server/kiln_mcp/user_env.py` -- Clerk env var fetcher with cache
+- `packages/mcp_server/sprout_mcp/auth/__init__.py` -- empty package init
+- `packages/mcp_server/sprout_mcp/auth/store.py` -- in-memory TTL store for OAuth data
+- `packages/mcp_server/sprout_mcp/auth/provider.py` -- OAuthAuthorizationServerProvider implementation
+- `packages/mcp_server/sprout_mcp/auth/clerk_callback.py` -- Starlette route for Clerk redirect callback
+- `packages/mcp_server/sprout_mcp/tools.py` -- extracted tool registration/execution logic
+- `packages/mcp_server/sprout_mcp/user_env.py` -- Clerk env var fetcher with cache
 - `packages/mcp_server/tests/test_store.py` -- store unit tests
 - `packages/mcp_server/tests/test_user_env.py` -- user env fetcher tests
 - `packages/mcp_server/tests/test_provider.py` -- OAuth provider tests
 - `packages/mcp_server/tests/test_clerk_callback.py` -- callback route tests
 
 ### Modified files
-- `packages/mcp_server/kiln_mcp/main.py` -- rewritten: thin entry point wiring auth + tools + health
+- `packages/mcp_server/sprout_mcp/main.py` -- rewritten: thin entry point wiring auth + tools + health
 - `packages/mcp_server/tests/test_handlers.py` -- updated imports (tools module)
 - `packages/mcp_server/tests/test_mcp_health.py` -- updated for new health check fields
 - `docker-compose.yml` -- Clerk env vars for mcp_server service
@@ -35,8 +35,8 @@
 ### Task 1: Create the in-memory OAuth store
 
 **Files:**
-- Create: `packages/mcp_server/kiln_mcp/auth/__init__.py`
-- Create: `packages/mcp_server/kiln_mcp/auth/store.py`
+- Create: `packages/mcp_server/sprout_mcp/auth/__init__.py`
+- Create: `packages/mcp_server/sprout_mcp/auth/store.py`
 - Create: `packages/mcp_server/tests/test_store.py`
 
 - [ ] **Step 1: Write the failing tests** -- see spec for InMemoryOAuthStore API: save/get/delete for clients, auth_codes, access_tokens, refresh_tokens. TTL expiry and cleanup. 13 tests total covering all CRUD + expiry + cleanup.
@@ -54,7 +54,7 @@
 ### Task 2: Create the user env var fetcher
 
 **Files:**
-- Create: `packages/mcp_server/kiln_mcp/user_env.py`
+- Create: `packages/mcp_server/sprout_mcp/user_env.py`
 - Create: `packages/mcp_server/tests/test_user_env.py`
 
 - [ ] **Step 1: Write the failing tests** -- 4 tests: successful fetch from Clerk, empty on missing CLERK_SECRET_KEY, empty on Clerk error, cache hit on second call.
@@ -72,15 +72,15 @@
 ### Task 3: Extract tools module from main.py
 
 **Files:**
-- Create: `packages/mcp_server/kiln_mcp/tools.py`
-- Modify: `packages/mcp_server/kiln_mcp/main.py`
+- Create: `packages/mcp_server/sprout_mcp/tools.py`
+- Modify: `packages/mcp_server/sprout_mcp/main.py`
 - Modify: `packages/mcp_server/tests/test_handlers.py`
 
 - [ ] **Step 1: Create tools.py** -- Extract from main.py: `_build_mcp_tool_schema`, `_make_tool_handler`, `_execute_tool`, `_execute_tool_safe`, `_fetch_tools`, `sync_tools`, `get_registered_tool_count`. Add `_registered_names` dict for name collision detection, `_stale_tool_ids` set for stale tracking. `_execute_tool` now accepts optional `user_id` and injects env vars via `fetch_user_env_vars`. `_execute_tool_safe` now distinguishes timeout, 4xx, 5xx errors. `sync_tools` detects name collisions (same name, different ID = skip + log error) and tracks removed tools as stale.
 
-- [ ] **Step 2: Update test_handlers.py imports** -- Change `from kiln_mcp.main import _build_mcp_tool_schema, _make_tool_handler` to `from kiln_mcp.tools import _build_mcp_tool_schema, _make_tool_handler`
+- [ ] **Step 2: Update test_handlers.py imports** -- Change `from sprout_mcp.main import _build_mcp_tool_schema, _make_tool_handler` to `from sprout_mcp.tools import _build_mcp_tool_schema, _make_tool_handler`
 
-- [ ] **Step 3: Strip extracted code from main.py** -- Remove all tool-related functions, `_poll_task`, `load_tools_on_startup`, `_fetch_tools_sync`. Import from `kiln_mcp.tools` instead. Built-in tools remain.
+- [ ] **Step 3: Strip extracted code from main.py** -- Remove all tool-related functions, `_poll_task`, `load_tools_on_startup`, `_fetch_tools_sync`. Import from `sprout_mcp.tools` instead. Built-in tools remain.
 
 - [ ] **Step 4: Run all existing tests** -- `uv run pytest packages/mcp_server/tests/ -v` -- all PASS
 
@@ -91,14 +91,14 @@
 ### Task 4: Create the OAuth provider
 
 **Files:**
-- Create: `packages/mcp_server/kiln_mcp/auth/provider.py`
+- Create: `packages/mcp_server/sprout_mcp/auth/provider.py`
 - Create: `packages/mcp_server/tests/test_provider.py`
 
 - [ ] **Step 1: Write the failing tests** -- 9 tests: register_client + get_client, get unknown returns None, authorize returns Clerk redirect URL, exchange_authorization_code returns tokens, load_access_token, expired token returns None, exchange_refresh_token rotates both, revoke_token deletes.
 
 - [ ] **Step 2: Run tests to verify they fail** -- `uv run pytest packages/mcp_server/tests/test_provider.py -v` -- expected: ModuleNotFoundError
 
-- [ ] **Step 3: Write the implementation** -- `KilnOAuthProvider` implementing all OAuthAuthorizationServerProvider methods. Extended models: `KilnAuthorizationCode(AuthorizationCode)` with `user_id`, `KilnAccessToken(AccessToken)` with `user_id`, `KilnRefreshToken(RefreshToken)` with `user_id`. `authorize()` encodes OAuth state as base64 JSON, redirects to `https://{clerk_domain}/sign-in?redirect_url={issuer}/oauth/callback?state={encoded}`. `exchange_authorization_code()` generates 32-byte urlsafe tokens, stores with TTLs (access=1h, refresh=30d), deletes auth code. `exchange_refresh_token()` rotates both tokens. `revoke_token()` deletes from store.
+- [ ] **Step 3: Write the implementation** -- `SproutOAuthProvider` implementing all OAuthAuthorizationServerProvider methods. Extended models: `SproutAuthorizationCode(AuthorizationCode)` with `user_id`, `SproutAccessToken(AccessToken)` with `user_id`, `SproutRefreshToken(RefreshToken)` with `user_id`. `authorize()` encodes OAuth state as base64 JSON, redirects to `https://{clerk_domain}/sign-in?redirect_url={issuer}/oauth/callback?state={encoded}`. `exchange_authorization_code()` generates 32-byte urlsafe tokens, stores with TTLs (access=1h, refresh=30d), deletes auth code. `exchange_refresh_token()` rotates both tokens. `revoke_token()` deletes from store.
 
 - [ ] **Step 4: Run tests to verify they pass** -- `uv run pytest packages/mcp_server/tests/test_provider.py -v` -- all 9 PASS
 
@@ -109,14 +109,14 @@
 ### Task 5: Create the Clerk callback route
 
 **Files:**
-- Create: `packages/mcp_server/kiln_mcp/auth/clerk_callback.py`
+- Create: `packages/mcp_server/sprout_mcp/auth/clerk_callback.py`
 - Create: `packages/mcp_server/tests/test_clerk_callback.py`
 
 - [ ] **Step 1: Write the failing tests** -- 3 tests using Starlette TestClient: missing state returns 400, invalid state returns 400, missing Clerk session returns 401.
 
 - [ ] **Step 2: Run tests to verify they fail** -- `uv run pytest packages/mcp_server/tests/test_clerk_callback.py -v` -- expected: ModuleNotFoundError
 
-- [ ] **Step 3: Write the implementation** -- `build_callback_route()` returns a Starlette Route for `GET /oauth/callback`. Decodes base64 state, extracts Clerk session from `__clerk_ticket` query param or `__session` cookie, verifies JWT via Clerk JWKS (reusing same pattern as `kiln_shared/auth.py`), generates auth code, stores in InMemoryOAuthStore, redirects to client's redirect_uri with code + state.
+- [ ] **Step 3: Write the implementation** -- `build_callback_route()` returns a Starlette Route for `GET /oauth/callback`. Decodes base64 state, extracts Clerk session from `__clerk_ticket` query param or `__session` cookie, verifies JWT via Clerk JWKS (reusing same pattern as `sprout_shared/auth.py`), generates auth code, stores in InMemoryOAuthStore, redirects to client's redirect_uri with code + state.
 
 - [ ] **Step 4: Run tests to verify they pass** -- `uv run pytest packages/mcp_server/tests/test_clerk_callback.py -v` -- all 3 PASS
 
@@ -127,10 +127,10 @@
 ### Task 6: Wire OAuth into main.py and add lifespan
 
 **Files:**
-- Modify: `packages/mcp_server/kiln_mcp/main.py`
+- Modify: `packages/mcp_server/sprout_mcp/main.py`
 - Modify: `packages/mcp_server/tests/test_mcp_health.py`
 
-- [ ] **Step 1: Rewrite main.py** -- Create `InMemoryOAuthStore` and `KilnOAuthProvider` at module level. If `CLERK_DOMAIN` and `CLERK_SECRET_KEY` are set, create FastMCP with `auth_server_provider`, `token_verifier=ProviderTokenVerifier(provider)`, and `AuthSettings` with `ClientRegistrationOptions(enabled=True, valid_scopes=["kiln:tools"], default_scopes=["kiln:tools"])`. Otherwise create unauthenticated FastMCP (with warning log). `build_http_app()` adds Clerk callback route alongside health routes. Lifespan: initial `sync_tools(mcp)` + `_poll_registry` task + `_cleanup_loop` task (60s interval). Health checks include `auth: enabled/disabled`.
+- [ ] **Step 1: Rewrite main.py** -- Create `InMemoryOAuthStore` and `SproutOAuthProvider` at module level. If `CLERK_DOMAIN` and `CLERK_SECRET_KEY` are set, create FastMCP with `auth_server_provider`, `token_verifier=ProviderTokenVerifier(provider)`, and `AuthSettings` with `ClientRegistrationOptions(enabled=True, valid_scopes=["sprout:tools"], default_scopes=["sprout:tools"])`. Otherwise create unauthenticated FastMCP (with warning log). `build_http_app()` adds Clerk callback route alongside health routes. Lifespan: initial `sync_tools(mcp)` + `_poll_registry` task + `_cleanup_loop` task (60s interval). Health checks include `auth: enabled/disabled`.
 
 - [ ] **Step 2: Run health tests** -- `uv run pytest packages/mcp_server/tests/test_mcp_health.py -v` -- all PASS
 
@@ -145,7 +145,7 @@
 **Files:**
 - Modify: `docker-compose.yml`
 
-- [ ] **Step 1: Add Clerk env vars to mcp_server** -- Under mcp_server service environment, add: `CLERK_DOMAIN=${CLERK_DOMAIN:-}`, `CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}`, `KILN_MCP_ISSUER_URL=http://localhost:8768`
+- [ ] **Step 1: Add Clerk env vars to mcp_server** -- Under mcp_server service environment, add: `CLERK_DOMAIN=${CLERK_DOMAIN:-}`, `CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}`, `SPROUT_MCP_ISSUER_URL=http://localhost:8768`
 
 - [ ] **Step 2: Commit** -- `git commit -m "Add Clerk env vars to mcp_server in docker-compose"`
 

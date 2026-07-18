@@ -7,12 +7,12 @@ import pytest
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 
-from kiln_mcp.auth.provider import (
-    KilnAccessToken,
-    KilnAuthorizationCode,
-    KilnOAuthProvider,
+from sprout_mcp.auth.provider import (
+    SproutAccessToken,
+    SproutAuthorizationCode,
+    SproutOAuthProvider,
 )
-from kiln_mcp.auth.store import InMemoryOAuthStore
+from sprout_mcp.auth.store import InMemoryOAuthStore
 
 
 @pytest.fixture
@@ -21,8 +21,8 @@ def store() -> InMemoryOAuthStore:
 
 
 @pytest.fixture
-def provider(store: InMemoryOAuthStore) -> KilnOAuthProvider:
-    return KilnOAuthProvider(
+def provider(store: InMemoryOAuthStore) -> SproutOAuthProvider:
+    return SproutOAuthProvider(
         store=store,
         clerk_domain="test.clerk.accounts.dev",
         issuer_url="http://localhost:8768",
@@ -41,7 +41,7 @@ def _make_client_info(client_id: str = "test-client") -> OAuthClientInformationF
 
 
 @pytest.mark.asyncio
-async def test_register_and_get_client(provider: KilnOAuthProvider) -> None:
+async def test_register_and_get_client(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
     result = await provider.get_client("test-client")
@@ -50,20 +50,20 @@ async def test_register_and_get_client(provider: KilnOAuthProvider) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_unknown_client_returns_none(provider: KilnOAuthProvider) -> None:
+async def test_get_unknown_client_returns_none(provider: SproutOAuthProvider) -> None:
     result = await provider.get_client("unknown")
     assert result is None
 
 
 @pytest.mark.asyncio
-async def test_authorize_returns_clerk_redirect(provider: KilnOAuthProvider) -> None:
+async def test_authorize_returns_clerk_redirect(provider: SproutOAuthProvider) -> None:
     from mcp.server.auth.provider import AuthorizationParams
 
     info = _make_client_info()
     await provider.register_client(info)
     params = AuthorizationParams(
         state="xyz",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         code_challenge="challenge123",
         redirect_uri=AnyUrl("http://localhost:3000/callback"),
         redirect_uri_provided_explicitly=True,
@@ -74,13 +74,13 @@ async def test_authorize_returns_clerk_redirect(provider: KilnOAuthProvider) -> 
 
 
 @pytest.mark.asyncio
-async def test_exchange_authorization_code(provider: KilnOAuthProvider) -> None:
+async def test_exchange_authorization_code(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="test-code",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="challenge",
@@ -97,13 +97,13 @@ async def test_exchange_authorization_code(provider: KilnOAuthProvider) -> None:
 
 
 @pytest.mark.asyncio
-async def test_load_access_token(provider: KilnOAuthProvider) -> None:
+async def test_load_access_token(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="code2",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -121,13 +121,13 @@ async def test_load_access_token(provider: KilnOAuthProvider) -> None:
 
 
 @pytest.mark.asyncio
-async def test_load_expired_access_token_returns_none(provider: KilnOAuthProvider) -> None:
+async def test_load_expired_access_token_returns_none(provider: SproutOAuthProvider) -> None:
     provider._store.save_access_token(
         "expired",
-        KilnAccessToken(
+        SproutAccessToken(
             token="expired",
             client_id="c",
-            scopes=["kiln:tools"],
+            scopes=["sprout:tools"],
             expires_at=int(time.time()) - 10,
             user_id="u",
         ).model_dump(),
@@ -138,13 +138,13 @@ async def test_load_expired_access_token_returns_none(provider: KilnOAuthProvide
 
 
 @pytest.mark.asyncio
-async def test_exchange_refresh_token(provider: KilnOAuthProvider) -> None:
+async def test_exchange_refresh_token(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="code3",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -158,17 +158,17 @@ async def test_exchange_refresh_token(provider: KilnOAuthProvider) -> None:
     refresh = await provider.load_refresh_token(info, token_resp.refresh_token)
     assert refresh is not None
 
-    new_token = await provider.exchange_refresh_token(info, refresh, ["kiln:tools"])
+    new_token = await provider.exchange_refresh_token(info, refresh, ["sprout:tools"])
     assert new_token.access_token != token_resp.access_token
     assert new_token.refresh_token != token_resp.refresh_token
 
 
 @pytest.mark.asyncio
-async def test_revoke_token(provider: KilnOAuthProvider) -> None:
-    at = KilnAccessToken(
+async def test_revoke_token(provider: SproutOAuthProvider) -> None:
+    at = SproutAccessToken(
         token="revoke-me",
         client_id="c",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=int(time.time()) + 3600,
         user_id="u",
     )
@@ -179,13 +179,13 @@ async def test_revoke_token(provider: KilnOAuthProvider) -> None:
 
 
 @pytest.mark.asyncio
-async def test_auth_code_deleted_after_exchange(provider: KilnOAuthProvider) -> None:
+async def test_auth_code_deleted_after_exchange(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="single-use",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -201,13 +201,13 @@ async def test_auth_code_deleted_after_exchange(provider: KilnOAuthProvider) -> 
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_invalidated_after_exchange(provider: KilnOAuthProvider) -> None:
+async def test_refresh_token_invalidated_after_exchange(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="code-inv",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -221,19 +221,19 @@ async def test_refresh_token_invalidated_after_exchange(provider: KilnOAuthProvi
     refresh = await provider.load_refresh_token(info, token_resp.refresh_token)
     assert refresh is not None
 
-    await provider.exchange_refresh_token(info, refresh, ["kiln:tools"])
+    await provider.exchange_refresh_token(info, refresh, ["sprout:tools"])
 
     assert await provider.load_refresh_token(info, token_resp.refresh_token) is None
 
 
 @pytest.mark.asyncio
-async def test_revoke_refresh_token(provider: KilnOAuthProvider) -> None:
+async def test_revoke_refresh_token(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="code-rev",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -254,13 +254,13 @@ async def test_revoke_refresh_token(provider: KilnOAuthProvider) -> None:
 
 
 @pytest.mark.asyncio
-async def test_revoke_access_also_revokes_paired_refresh(provider: KilnOAuthProvider) -> None:
+async def test_revoke_access_also_revokes_paired_refresh(provider: SproutOAuthProvider) -> None:
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="code-pair",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -283,7 +283,7 @@ async def test_revoke_access_also_revokes_paired_refresh(provider: KilnOAuthProv
 def test_verify_state_accepts_signed_payload() -> None:
     from base64 import urlsafe_b64encode
 
-    from kiln_mcp.auth.provider import _sign_state, verify_state
+    from sprout_mcp.auth.provider import _sign_state, verify_state
 
     payload = json.dumps({"hello": "world"}).encode()
     sig = _sign_state(payload)
@@ -296,7 +296,7 @@ def test_verify_state_accepts_signed_payload() -> None:
 def test_verify_state_rejects_tampered_payload() -> None:
     from base64 import urlsafe_b64encode
 
-    from kiln_mcp.auth.provider import _sign_state, verify_state
+    from sprout_mcp.auth.provider import _sign_state, verify_state
 
     payload = json.dumps({"client_id": "victim"}).encode()
     sig = _sign_state(payload)
@@ -307,7 +307,7 @@ def test_verify_state_rejects_tampered_payload() -> None:
 
 
 @pytest.mark.asyncio
-async def test_authorize_rejects_unregistered_redirect_uri(provider: KilnOAuthProvider) -> None:
+async def test_authorize_rejects_unregistered_redirect_uri(provider: SproutOAuthProvider) -> None:
     from mcp.server.auth.provider import AuthorizationParams
 
     info = _make_client_info()
@@ -315,7 +315,7 @@ async def test_authorize_rejects_unregistered_redirect_uri(provider: KilnOAuthPr
 
     params = AuthorizationParams(
         state="x",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         code_challenge="ch",
         redirect_uri=AnyUrl("http://evil.example.com/callback"),
         redirect_uri_provided_explicitly=True,
@@ -325,21 +325,21 @@ async def test_authorize_rejects_unregistered_redirect_uri(provider: KilnOAuthPr
 
 
 def test_verify_state_rejects_malformed_input() -> None:
-    from kiln_mcp.auth.provider import verify_state
+    from sprout_mcp.auth.provider import verify_state
 
     assert verify_state("not-valid-at-all") is None
     assert verify_state("no.dot.separator.count") is None
 
 
 @pytest.mark.asyncio
-async def test_exchange_refresh_invalidates_old_access_token(provider: KilnOAuthProvider) -> None:
+async def test_exchange_refresh_invalidates_old_access_token(provider: SproutOAuthProvider) -> None:
     """Old access token must be revoked when refresh token is rotated."""
     info = _make_client_info()
     await provider.register_client(info)
 
-    auth_code = KilnAuthorizationCode(
+    auth_code = SproutAuthorizationCode(
         code="code-rot",
-        scopes=["kiln:tools"],
+        scopes=["sprout:tools"],
         expires_at=time.time() + 600,
         client_id="test-client",
         code_challenge="ch",
@@ -353,6 +353,6 @@ async def test_exchange_refresh_invalidates_old_access_token(provider: KilnOAuth
     refresh = await provider.load_refresh_token(info, token_resp.refresh_token)
     assert refresh is not None
 
-    await provider.exchange_refresh_token(info, refresh, ["kiln:tools"])
+    await provider.exchange_refresh_token(info, refresh, ["sprout:tools"])
 
     assert await provider.load_access_token(token_resp.access_token) is None

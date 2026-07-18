@@ -6,7 +6,7 @@
 
 ## Problem
 
-The Kiln MCP server currently has zero per-user authentication. Any MCP client
+The Sprout MCP server currently has zero per-user authentication. Any MCP client
 connects anonymously and tool executions use `X-Internal-Secret` — no user
 identity, no access to saved env vars (API keys), no audit trail. Standard MCP
 clients (Claude Desktop, ChatGPT, Cursor, VS Code Copilot) expect OAuth 2.1
@@ -77,10 +77,10 @@ the dicts later without changing the interface.
 The SDK's `AccessToken` and `RefreshToken` are extended with a `user_id` field:
 
 ```python
-class KilnAccessToken(AccessToken):
+class SproutAccessToken(AccessToken):
     user_id: str
 
-class KilnRefreshToken(RefreshToken):
+class SproutRefreshToken(RefreshToken):
     user_id: str
 ```
 
@@ -122,7 +122,7 @@ cross-domain because the token is passed as a URL parameter.
 
 **`load_access_token(token)`**
 - Look up in `_access_tokens`, check expiry
-- Return `KilnAccessToken` with user_id, scopes
+- Return `SproutAccessToken` with user_id, scopes
 
 **`exchange_refresh_token(client, refresh_token, scopes)`**
 - Validate refresh token exists and hasn't expired
@@ -136,7 +136,7 @@ cross-domain because the token is passed as a URL parameter.
 
 ### Scopes
 
-Single scope for now: `kiln:tools` (grants access to all tool operations).
+Single scope for now: `sprout:tools` (grants access to all tool operations).
 No fine-grained per-tool scopes -- can be added later without breaking changes.
 
 ## Tool Execution with User Context
@@ -159,12 +159,12 @@ resp = await client.post(
     json={"args": args, "env_vars": user_env_vars},
     headers={
         "X-Internal-Secret": ...,
-        "X-Kiln-User-ID": user_id,
+        "X-Sprout-User-ID": user_id,
     },
 )
 ```
 
-The `user_id` is extracted from the verified `KilnAccessToken` attached to the
+The `user_id` is extracted from the verified `SproutAccessToken` attached to the
 MCP request by the SDK's auth middleware. The env var fetch reuses the same
 Clerk Backend API call that `chat_backend/_fetch_user_tool_env_vars` uses.
 
@@ -228,11 +228,11 @@ detected (same name, different ID), log an error and skip the newer tool.
 ## File Structure
 
 ```
-packages/mcp_server/kiln_mcp/
+packages/mcp_server/sprout_mcp/
   main.py                  # Entry point: FastMCP config, Starlette app, health routes, lifespan
   auth/
     __init__.py
-    provider.py            # KilnOAuthProvider(OAuthAuthorizationServerProvider)
+    provider.py            # SproutOAuthProvider(OAuthAuthorizationServerProvider)
     store.py               # InMemoryOAuthStore -- clients, codes, tokens with TTL
     clerk_callback.py      # GET /oauth/callback -- Clerk redirect handler
   tools.py                 # sync_tools(), _make_tool_handler(), _execute_tool(), stale tracking
@@ -246,7 +246,7 @@ packages/mcp_server/kiln_mcp/
 - CLI entry point
 
 ### auth/provider.py
-- `KilnOAuthProvider` class implementing all 9 provider methods
+- `SproutOAuthProvider` class implementing all 9 provider methods
 - Uses `InMemoryOAuthStore` for persistence
 - `authorize()` redirects to Clerk sign-in
 
@@ -281,17 +281,17 @@ New environment variables:
 |----------|----------|---------|---------|
 | `CLERK_DOMAIN` | Yes | -- | Clerk domain for sign-in redirect |
 | `CLERK_SECRET_KEY` | Yes | -- | Clerk Backend API key for user lookups |
-| `KILN_MCP_ISSUER_URL` | No | `http://localhost:8768` | OAuth issuer URL (must match what clients see) |
+| `SPROUT_MCP_ISSUER_URL` | No | `http://localhost:8768` | OAuth issuer URL (must match what clients see) |
 
-Existing variables unchanged: `KILN_REGISTRY_URL`, `KILN_MCP_HOST`,
-`KILN_MCP_PORT`, `KILN_MCP_POLL_INTERVAL`, `KILN_INTERNAL_SECRET`.
+Existing variables unchanged: `SPROUT_REGISTRY_URL`, `SPROUT_MCP_HOST`,
+`SPROUT_MCP_PORT`, `SPROUT_MCP_POLL_INTERVAL`, `SPROUT_INTERNAL_SECRET`.
 
 Docker-compose additions for `mcp_server` service:
 ```yaml
 environment:
   - CLERK_DOMAIN=${CLERK_DOMAIN:-}
   - CLERK_SECRET_KEY=${CLERK_SECRET_KEY:-}
-  - KILN_MCP_ISSUER_URL=http://localhost:8768
+  - SPROUT_MCP_ISSUER_URL=http://localhost:8768
 ```
 
 ## Testing Strategy

@@ -1,4 +1,4 @@
-// E2E: verify the local Kiln services expose healthy HTTP probes.
+// E2E: verify the local Sprout services expose healthy HTTP probes.
 //
 // This keeps the suite honest before we spend time in browser tests, and it
 // mirrors the same service set shown in the registry UI system-status panel.

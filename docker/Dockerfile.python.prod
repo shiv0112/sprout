@@ -1,11 +1,11 @@
-# Multi-stage production Dockerfile for Kiln Python services.
+# Multi-stage production Dockerfile for Sprout Python services.
 #
 # Usage:
 #   docker build -f docker/Dockerfile.python.prod \
 #     --build-arg SERVICE=registry_api \
-#     --build-arg MODULE=kiln_registry.main:app \
+#     --build-arg MODULE=sprout_registry.main:app \
 #     --build-arg PORT=8766 \
-#     -t kiln-registry-api .
+#     -t sprout-registry-api .
 
 # ── Stage 1: Install dependencies ──────────────────────────────────────────
 FROM python:3.12-slim AS builder
@@ -27,21 +27,21 @@ COPY packages/mcp_server/pyproject.toml packages/mcp_server/pyproject.toml
 
 # Create stub package files so the workspace editable build can succeed
 # before the full source is copied. py.typed is required because the
-# kiln-shared pyproject has a `[tool.hatch.build.targets.wheel.force-include]`
+# sprout-shared pyproject has a `[tool.hatch.build.targets.wheel.force-include]`
 # entry for it (PEP 561 marker) and the build will fail without the file.
-RUN mkdir -p packages/shared/kiln_shared \
-    packages/registry_api/kiln_registry \
-    packages/chat_backend/kiln_chat_backend \
-    packages/mcp_server/kiln_mcp \
-    packages/tool_executor/kiln_executor \
-    packages/synthesis_service/kiln_synthesis && \
-    touch packages/shared/kiln_shared/__init__.py \
-    packages/shared/kiln_shared/py.typed \
-    packages/registry_api/kiln_registry/__init__.py \
-    packages/chat_backend/kiln_chat_backend/__init__.py \
-    packages/mcp_server/kiln_mcp/__init__.py \
-    packages/tool_executor/kiln_executor/__init__.py \
-    packages/synthesis_service/kiln_synthesis/__init__.py
+RUN mkdir -p packages/shared/sprout_shared \
+    packages/registry_api/sprout_registry \
+    packages/chat_backend/sprout_chat_backend \
+    packages/mcp_server/sprout_mcp \
+    packages/tool_executor/sprout_executor \
+    packages/synthesis_service/sprout_synthesis && \
+    touch packages/shared/sprout_shared/__init__.py \
+    packages/shared/sprout_shared/py.typed \
+    packages/registry_api/sprout_registry/__init__.py \
+    packages/chat_backend/sprout_chat_backend/__init__.py \
+    packages/mcp_server/sprout_mcp/__init__.py \
+    packages/tool_executor/sprout_executor/__init__.py \
+    packages/synthesis_service/sprout_synthesis/__init__.py
 
 # Install all workspace dependencies
 RUN uv sync --no-dev --frozen 2>/dev/null || uv sync --no-dev
@@ -50,7 +50,7 @@ RUN uv sync --no-dev --frozen 2>/dev/null || uv sync --no-dev
 FROM python:3.12-slim AS runtime
 
 ARG SERVICE=registry_api
-ARG MODULE=kiln_registry.main:app
+ARG MODULE=sprout_registry.main:app
 ARG PORT=8766
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -63,7 +63,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN groupadd -r kiln && useradd -r -g kiln -d /app kiln
+RUN groupadd -r sprout && useradd -r -g sprout -d /app sprout
 
 WORKDIR /app
 
@@ -78,10 +78,10 @@ COPY packages/${SERVICE}/ packages/${SERVICE}/
 # Copy registry tools (only needed by registry_api and chat_backend)
 COPY registry/ registry/
 
-# Own everything by kiln user
-RUN chown -R kiln:kiln /app
+# Own everything by sprout user
+RUN chown -R sprout:sprout /app
 
-USER kiln
+USER sprout
 
 EXPOSE ${PORT}
 

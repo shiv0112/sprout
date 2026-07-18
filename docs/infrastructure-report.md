@@ -1,6 +1,5 @@
-# Kiln Infrastructure Report
+# Sprout Infrastructure Report
 
-**CS5224 Cloud Computing, National University of Singapore**
 **Team:** Shivansh, Arya Bhosale, Himanshu, Sahajpreet, Chun Jie
 **Date:** April 2026
 
@@ -8,7 +7,7 @@
 
 ## 1. Executive Summary
 
-Kiln is a self-evolving tool registry for autonomous AI agents. Users describe tasks in natural language, a planning agent (ARIA) decomposes them into a directed acyclic task graph, and if a tool is missing, a synthesis agent (Vibe) generates it on the fly. No service restarts are required.
+Sprout is a self-evolving tool registry for autonomous AI agents. Users describe tasks in natural language, a planning agent (ARIA) decomposes them into a directed acyclic task graph, and if a tool is missing, a synthesis agent (Vibe) generates it on the fly. No service restarts are required.
 
 The production deployment runs on **Google Kubernetes Engine (GKE) Standard** in the `asia-southeast1-a` zone under project `peaceful-basis-329822`. The cluster hosts 11 pods (6 application services, 2 data stores, 3 observability components) managed as 33 Kubernetes resources defined in Tanka/Jsonnet manifests.
 
@@ -33,7 +32,7 @@ The production deployment runs on **Google Kubernetes Engine (GKE) Standard** in
                             |
           +-----------------+-----------------+------------------+------------------+
           |                 |                 |                  |                  |
-  kiln.34.36.172.184  api.34.36.172.184  chat.34.36.172.184  mcp.34.36.172.184  grafana.34.36.172.184
+  sprout.34.36.172.184  api.34.36.172.184  chat.34.36.172.184  mcp.34.36.172.184  grafana.34.36.172.184
      .nip.io              .nip.io            .nip.io            .nip.io            .nip.io
           |                 |                 |                  |                  |
    +-----------+    +-----------+    +-----------+    +-----------+    +-----------+
@@ -65,7 +64,7 @@ The production deployment runs on **Google Kubernetes Engine (GKE) Standard** in
                      +-------------------+
 ```
 
-All application pods run in the `kiln` namespace with a shared Kubernetes ServiceAccount (`kiln-sa`) bound to a GCP service account via Workload Identity Federation.
+All application pods run in the `sprout` namespace with a shared Kubernetes ServiceAccount (`sprout-sa`) bound to a GCP service account via Workload Identity Federation.
 
 ---
 
@@ -73,12 +72,12 @@ All application pods run in the `kiln` namespace with a shared Kubernetes Servic
 
 | Property | Value |
 |---|---|
-| Cluster name | `kiln-dev-gke` |
+| Cluster name | `sprout-dev-gke` |
 | Location | `asia-southeast1-a` (zonal) |
 | Release channel | `REGULAR` |
 | Kubernetes API version | 1.32 (from jsonnet-libs) |
-| VPC | `kiln-dev-vpc` |
-| Subnet | `kiln-dev-subnet` (10.0.0.0/20) |
+| VPC | `sprout-dev-vpc` |
+| Subnet | `sprout-dev-subnet` (10.0.0.0/20) |
 | Pod CIDR | 10.4.0.0/14 (secondary range "pods") |
 | Service CIDR | 10.8.0.0/20 (secondary range "services") |
 | Private nodes | Yes (master endpoint public, nodes private) |
@@ -102,7 +101,7 @@ The main pool provides ~1930m allocatable CPU (after system reservation on e2-st
 
 ## 4. Service Inventory
 
-All application services use a shared Tanka helper (`kilnService`) that applies consistent patterns: envFrom for ConfigMap + Secret, Workload Identity ServiceAccount, liveness probe on `/livez`, readiness probe on `/readyz`, and Prometheus scrape annotations.
+All application services use a shared Tanka helper (`sproutService`) that applies consistent patterns: envFrom for ConfigMap + Secret, Workload Identity ServiceAccount, liveness probe on `/livez`, readiness probe on `/readyz`, and Prometheus scrape annotations.
 
 ### Application Pods
 
@@ -110,7 +109,7 @@ All application services use a shared Tanka helper (`kilnService`) that applies 
 |---|---|---|---|---|---|---|---|---|
 | registry-api | `registry-api` | 8766 | 100m / 1000m | 256Mi / 512Mi | 1 | `/livez`, `/readyz` | RollingUpdate | Init container runs Alembic migrations |
 | chat-backend | `chat-backend` | 8765 | 100m / 1000m | 256Mi / 512Mi | 1 | `/livez`, `/readyz` | **Recreate** | Redis leader lock enforces single-replica; 30s termination grace |
-| mcp-server | `mcp-server` | 8768 | 50m / 250m | 128Mi / 256Mi | 1 | `/livez`, `/readyz` | RollingUpdate | Custom command: `python -m kiln_mcp.main streamable-http` |
+| mcp-server | `mcp-server` | 8768 | 50m / 250m | 128Mi / 256Mi | 1 | `/livez`, `/readyz` | RollingUpdate | Custom command: `python -m sprout_mcp.main streamable-http` |
 | tool-executor | `tool-executor` | 8767 | 50m / 1000m | 256Mi / 512Mi | 1 | `/livez`, `/readyz` | RollingUpdate | NetworkPolicy-restricted egress |
 | synthesis-service | `synthesis-service` | 8002 | 100m / 2000m | 512Mi / 1Gi | 1 | `/livez`, `/readyz` | RollingUpdate | NetworkPolicy-restricted egress; highest memory limit for Vibe CLI |
 | registry-ui | `registry-ui` | 3000 | 50m / 500m | 128Mi / 256Mi | 1 | `/livez`, `/readyz` | RollingUpdate | Next.js standalone; no Prometheus scrape |
@@ -119,7 +118,7 @@ All application services use a shared Tanka helper (`kilnService`) that applies 
 
 | Service | Image | Port | CPU Req / Limit | Mem Req / Limit | Replicas | Storage | Probe |
 |---|---|---|---|---|---|---|---|
-| postgres | `postgres:17-alpine` | 5432 | 100m / 500m | 256Mi / 512Mi | 1 (StatefulSet) | 10Gi PVC (premium-rwo) | `pg_isready -U kiln` |
+| postgres | `postgres:17-alpine` | 5432 | 100m / 500m | 256Mi / 512Mi | 1 (StatefulSet) | 10Gi PVC (premium-rwo) | `pg_isready -U sprout` |
 | redis | `redis:7-alpine` | 6379 | 50m / 200m | 64Mi / 192Mi | 1 (Deployment) | None (ephemeral) | `redis-cli ping` |
 
 ### Observability Pods
@@ -143,7 +142,7 @@ All application services use a shared Tanka helper (`kilnService`) that applies 
 
 ### VPC Design
 
-Terraform provisions a custom-mode VPC (`kiln-dev-vpc`) with a single subnet in `asia-southeast1`:
+Terraform provisions a custom-mode VPC (`sprout-dev-vpc`) with a single subnet in `asia-southeast1`:
 
 | Range | CIDR | Purpose |
 |---|---|---|
@@ -155,19 +154,19 @@ Nodes are private (`enable_private_nodes = true`), meaning they have no external
 
 ### Ingress
 
-A GCE L7 HTTP Load Balancer is provisioned via the `kubernetes.io/ingress.class: gce` annotation, backed by a Terraform-managed global static IP (`kiln-dev-ingress-ip`, address `34.36.172.184`).
+A GCE L7 HTTP Load Balancer is provisioned via the `kubernetes.io/ingress.class: gce` annotation, backed by a Terraform-managed global static IP (`sprout-dev-ingress-ip`, address `34.36.172.184`).
 
 Host-based routing using nip.io wildcard DNS:
 
 | Host | Backend Service | Port |
 |---|---|---|
-| `kiln.34.36.172.184.nip.io` | registry-ui | 3000 |
+| `sprout.34.36.172.184.nip.io` | registry-ui | 3000 |
 | `api.34.36.172.184.nip.io` | registry-api | 8766 |
 | `chat.34.36.172.184.nip.io` | chat-backend | 8765 |
 | `mcp.34.36.172.184.nip.io` | mcp-server | 8768 |
 | `grafana.34.36.172.184.nip.io` | grafana | 3001 |
 
-CORS is configured in the ConfigMap to allow `https://kiln.<IP>.nip.io`.
+CORS is configured in the ConfigMap to allow `https://sprout.<IP>.nip.io`.
 
 ### NetworkPolicies
 
@@ -197,17 +196,17 @@ Other pods (registry-api, chat-backend, mcp-server, registry-ui) have no Network
 |---|---|
 | Image | `postgres:17-alpine` |
 | Kind | StatefulSet (1 replica) |
-| Database | `kiln_registry` |
-| User | `kiln` |
-| Password | From `kiln-secrets` Secret (`PG_PASSWORD` key) |
+| Database | `sprout_registry` |
+| User | `sprout` |
+| Password | From `sprout-secrets` Secret (`PG_PASSWORD` key) |
 | Storage | 10Gi PVC, `premium-rwo` StorageClass |
 | PGDATA | `/var/lib/postgresql/data/pgdata` |
 | Service | Headless (`clusterIP: None`) at `postgres:5432` |
-| Connection string | `postgresql://kiln:$(PG_PASSWORD)@postgres:5432/kiln_registry` |
+| Connection string | `postgresql://sprout:$(PG_PASSWORD)@postgres:5432/sprout_registry` |
 
-**Migrations:** The registry-api Deployment includes an init container that runs `kiln-registry migrate` before the main container starts. This executes Alembic migrations against the database. The migration script location is `kiln_registry/migrations` with versions tracked in `packages/registry_api/kiln_registry/migrations/versions/`. At time of writing, there is one migration: `0001_initial.py`.
+**Migrations:** The registry-api Deployment includes an init container that runs `sprout-registry migrate` before the main container starts. This executes Alembic migrations against the database. The migration script location is `sprout_registry/migrations` with versions tracked in `packages/registry_api/sprout_registry/migrations/versions/`. At time of writing, there is one migration: `0001_initial.py`.
 
-**Backups:** A GCS bucket (`peaceful-basis-329822-kiln-pg-backups`) is provisioned with a 14-day lifecycle rule for automatic deletion. The workload service account has `storage.objectCreator` permission on this bucket.
+**Backups:** A GCS bucket (`peaceful-basis-329822-sprout-pg-backups`) is provisioned with a 14-day lifecycle rule for automatic deletion. The workload service account has `storage.objectCreator` permission on this bucket.
 
 ### Redis
 
@@ -222,11 +221,11 @@ Other pods (registry-api, chat-backend, mcp-server, registry-ui) have no Network
 
 Redis is used as an ephemeral cache and coordination layer, not as durable storage. Its primary roles:
 
-1. **Leader lock for chat-backend:** A Redis-based distributed lock (`kiln:chat_backend:leader` key with 30s TTL) ensures only one chat-backend replica runs at a time. The lock is acquired via `SET NX` on startup. A background heartbeat refreshes the TTL every 10 seconds using a compare-and-set Lua script. If the lock is lost (expiration, eviction, or another replica), the process terminates immediately with `os._exit(1)` to trigger Kubernetes CrashLoopBackOff. This pattern is intentional: chat-backend holds in-memory SSE queues and DAG execution state that cannot be safely split across replicas.
+1. **Leader lock for chat-backend:** A Redis-based distributed lock (`sprout:chat_backend:leader` key with 30s TTL) ensures only one chat-backend replica runs at a time. The lock is acquired via `SET NX` on startup. A background heartbeat refreshes the TTL every 10 seconds using a compare-and-set Lua script. If the lock is lost (expiration, eviction, or another replica), the process terminates immediately with `os._exit(1)` to trigger Kubernetes CrashLoopBackOff. This pattern is intentional: chat-backend holds in-memory SSE queues and DAG execution state that cannot be safely split across replicas.
 
 2. **Rate limiting / caching** for inter-service coordination.
 
-The lock is only enforced when `KILN_ENV != dev` (production), controlled by the `KILN_ENV: prod` value in the ConfigMap.
+The lock is only enforced when `SPROUT_ENV != dev` (production), controlled by the `SPROUT_ENV: prod` value in the ConfigMap.
 
 ---
 
@@ -234,7 +233,7 @@ The lock is only enforced when `KILN_ENV != dev` (production), controlled by the
 
 ### Prometheus
 
-Prometheus v2.53.0 runs as a StatefulSet with 5Gi persistent storage (`premium-rwo`). It scrapes the `kiln` namespace using Kubernetes pod service discovery, selecting pods with the annotation `prometheus.io/scrape: "true"`.
+Prometheus v2.53.0 runs as a StatefulSet with 5Gi persistent storage (`premium-rwo`). It scrapes the `sprout` namespace using Kubernetes pod service discovery, selecting pods with the annotation `prometheus.io/scrape: "true"`.
 
 Configuration:
 - Scrape interval: 15 seconds
@@ -243,17 +242,17 @@ Configuration:
 - Runs as non-root user 65534 (nobody), fsGroup 65534
 
 Scrape jobs:
-1. **kubernetes-pods** — auto-discovers pods in the `kiln` namespace with `prometheus.io/scrape: "true"` annotation. Uses the `prometheus.io/port` and `prometheus.io/path` annotations for target address. The `service` label is populated from the pod's `app` label.
+1. **kubernetes-pods** — auto-discovers pods in the `sprout` namespace with `prometheus.io/scrape: "true"` annotation. Uses the `prometheus.io/port` and `prometheus.io/path` annotations for target address. The `service` label is populated from the pod's `app` label.
 2. **kube-state-metrics** — static target at `kube-state-metrics:8080` for cluster-level Kubernetes object metrics.
 
 ### Custom Application Metrics
 
-All Python services (except registry-ui) mount Prometheus metrics via `kiln_shared.metrics.mount_metrics()` at the `/metrics` endpoint:
+All Python services (except registry-ui) mount Prometheus metrics via `sprout_shared.metrics.mount_metrics()` at the `/metrics` endpoint:
 
 | Metric | Type | Labels | Description |
 |---|---|---|---|
-| `kiln_http_requests_total` | Counter | `service`, `method`, `path`, `status` | Total HTTP requests per service |
-| `kiln_http_request_duration_seconds` | Histogram | `service`, `method`, `path` | Request latency distribution |
+| `sprout_http_requests_total` | Counter | `service`, `method`, `path`, `status` | Total HTTP requests per service |
+| `sprout_http_request_duration_seconds` | Histogram | `service`, `method`, `path` | Request latency distribution |
 
 Histogram buckets: 10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s.
 
@@ -266,7 +265,7 @@ Services with Prometheus scrape enabled: registry-api, chat-backend, tool-execut
 Grafana 11.1.0 is provisioned with:
 - Auto-configured Prometheus datasource pointing to `http://prometheus:9090`
 - Dashboard provisioning directory at `/var/lib/grafana/dashboards` (empty dir, dashboards created via UI)
-- Admin password sourced from `kiln-secrets` Secret (`GRAFANA_PASSWORD` key)
+- Admin password sourced from `sprout-secrets` Secret (`GRAFANA_PASSWORD` key)
 - Custom HTTP port 3001 (to avoid conflict with registry-ui on 3000)
 - Accessible at `grafana.34.36.172.184.nip.io`
 
@@ -280,18 +279,18 @@ kube-state-metrics v2.12.0 exposes Kubernetes object metrics (pod status, deploy
 
 ### Workload Identity Federation (GKE Workloads)
 
-All pods in the `kiln` namespace use the `kiln-sa` Kubernetes ServiceAccount, which is annotated with:
+All pods in the `sprout` namespace use the `sprout-sa` Kubernetes ServiceAccount, which is annotated with:
 ```
-iam.gke.io/gcp-service-account: kiln-dev-workload@peaceful-basis-329822.iam.gserviceaccount.com
+iam.gke.io/gcp-service-account: sprout-dev-workload@peaceful-basis-329822.iam.gserviceaccount.com
 ```
 
-The GCP service account (`kiln-dev-workload`) has the following IAM bindings:
+The GCP service account (`sprout-dev-workload`) has the following IAM bindings:
 
 | Role | Resource | Purpose |
 |---|---|---|
-| `roles/iam.workloadIdentityUser` | SA binding for `kiln/kiln-sa` | Allows pods to impersonate the GCP SA |
-| `roles/storage.objectAdmin` | `peaceful-basis-329822-kiln-tools` bucket | Read/write tool artifacts |
-| `roles/storage.objectCreator` | `peaceful-basis-329822-kiln-pg-backups` bucket | Write database backups |
+| `roles/iam.workloadIdentityUser` | SA binding for `sprout/sprout-sa` | Allows pods to impersonate the GCP SA |
+| `roles/storage.objectAdmin` | `peaceful-basis-329822-sprout-tools` bucket | Read/write tool artifacts |
+| `roles/storage.objectCreator` | `peaceful-basis-329822-sprout-pg-backups` bucket | Write database backups |
 | `roles/artifactregistry.reader` | Project-level | Pull container images from Artifact Registry |
 
 ### Workload Identity Federation (GitHub Actions)
@@ -303,15 +302,15 @@ CI/CD authenticates via OIDC, eliminating long-lived service account keys:
 | WIF Pool | `github-actions` |
 | WIF Provider | `github-oidc` |
 | OIDC Issuer | `https://token.actions.githubusercontent.com` |
-| Attribute condition | `assertion.repository == 'aryabyte21/kiln'` |
-| GCP Service Account | `kiln-dev-github-ci` |
+| Attribute condition | `assertion.repository == 'aryabyte21/sprout'` |
+| GCP Service Account | `sprout-dev-github-ci` |
 | Roles | `roles/artifactregistry.writer`, `roles/container.developer` |
 
-The attribute condition restricts token exchange to the `aryabyte21/kiln` repository only. The CI service account can push images and deploy to GKE but has no access to storage buckets or secrets.
+The attribute condition restricts token exchange to the `aryabyte21/sprout` repository only. The CI service account can push images and deploy to GKE but has no access to storage buckets or secrets.
 
 ### Secret Management
 
-Secrets are stored in a Kubernetes Secret named `kiln-secrets` (created manually, not in Terraform or Tanka manifests). Referenced keys:
+Secrets are stored in a Kubernetes Secret named `sprout-secrets` (created manually, not in Terraform or Tanka manifests). Referenced keys:
 
 | Key | Consumers |
 |---|---|
@@ -321,8 +320,8 @@ Secrets are stored in a Kubernetes Secret named `kiln-secrets` (created manually
 
 ### Container Security
 
-- All Python service containers run as non-root user `kiln` (created via `groupadd`/`useradd` in the Dockerfile)
-- The Next.js container runs as non-root user `kiln` (UID 1001, created via `adduser`)
+- All Python service containers run as non-root user `sprout` (created via `groupadd`/`useradd` in the Dockerfile)
+- The Next.js container runs as non-root user `sprout` (UID 1001, created via `adduser`)
 - Prometheus runs as UID/GID 65534 (nobody) with `fsGroup: 65534`
 - Base images: `python:3.12-slim` (Python services), `node:22-alpine` (UI), `postgres:17-alpine`, `redis:7-alpine`
 
@@ -362,27 +361,27 @@ All subsequent stages depend on `test` passing.
 
 | Matrix entry | Image name | Module | Port |
 |---|---|---|---|
-| `registry_api` | `registry-api` | `kiln_registry.main:app` | 8766 |
-| `chat_backend` | `chat-backend` | `kiln_chat_backend.main:app` | 8765 |
-| `tool_executor` | `tool-executor` | `kiln_executor.main:app` | 8767 |
-| `mcp_server` | `mcp-server` | `kiln_mcp.main:app` | 8768 |
-| `synthesis_service` | `synthesis-service` | `kiln_synthesis.main:app` | 8002 |
+| `registry_api` | `registry-api` | `sprout_registry.main:app` | 8766 |
+| `chat_backend` | `chat-backend` | `sprout_chat_backend.main:app` | 8765 |
+| `tool_executor` | `tool-executor` | `sprout_executor.main:app` | 8767 |
+| `mcp_server` | `mcp-server` | `sprout_mcp.main:app` | 8768 |
+| `synthesis_service` | `synthesis-service` | `sprout_synthesis.main:app` | 8002 |
 
 Each image is built from `docker/Dockerfile.python.prod` (multi-stage: `python:3.12-slim` builder + runtime) and tagged with both `$GITHUB_SHA` and `latest`. Docker BuildX with GitHub Actions cache (`type=gha`).
 
 **build-ui** — Single image from `docker/Dockerfile.nextjs.prod` (3-stage: deps, build, runtime with `node:22-alpine`). Tagged identically.
 
-All images are pushed to Artifact Registry: `asia-southeast1-docker.pkg.dev/peaceful-basis-329822/kiln/<image>`.
+All images are pushed to Artifact Registry: `asia-southeast1-docker.pkg.dev/peaceful-basis-329822/sprout/<image>`.
 
 Authentication: WIF OIDC (`google-github-actions/auth@v2`) with the CI service account.
 
 #### Stage 3: Deploy (`deploy`)
 
 1. Authenticate via WIF
-2. Get GKE credentials: `gcloud container clusters get-credentials kiln-dev-gke --zone asia-southeast1-a`
+2. Get GKE credentials: `gcloud container clusters get-credentials sprout-dev-gke --zone asia-southeast1-a`
 3. Install Tanka and Jsonnet Bundler (latest Linux amd64 binaries)
 4. `jb install` (fetch k8s-libsonnet 1.32 vendor libs)
-5. Verify `kiln-secrets` Secret exists in the cluster
+5. Verify `sprout-secrets` Secret exists in the cluster
 6. `tk apply environments/default` with external variables:
    - `IMAGE_REGISTRY`, `IMAGE_TAG` (from build stage)
    - `GCS_BUCKET`, `WORKLOAD_SA`, `INGRESS_IP`, `INGRESS_IP_NAME`, `PG_BACKUP_BUCKET` (from GitHub Secrets)
@@ -474,7 +473,7 @@ terraform output
 ### Step 2: Connect to Cluster
 
 ```bash
-gcloud container clusters get-credentials kiln-dev-gke \
+gcloud container clusters get-credentials sprout-dev-gke \
   --zone asia-southeast1-a \
   --project peaceful-basis-329822
 ```
@@ -482,31 +481,31 @@ gcloud container clusters get-credentials kiln-dev-gke \
 ### Step 3: Create Secrets
 
 ```bash
-kubectl create namespace kiln
+kubectl create namespace sprout
 
-kubectl create secret generic kiln-secrets \
-  --namespace kiln \
+kubectl create secret generic sprout-secrets \
+  --namespace sprout \
   --from-literal=PG_PASSWORD='<postgres-password>' \
   --from-literal=GRAFANA_PASSWORD='<grafana-admin-password>' \
   --from-literal=MISTRAL_API_KEY='<mistral-key>' \
   --from-literal=CLERK_SECRET_KEY='<clerk-secret>' \
-  --from-literal=KILN_API_KEY='<internal-api-key>'
+  --from-literal=SPROUT_API_KEY='<internal-api-key>'
 ```
 
 ### Step 4: Build and Push Images
 
 ```bash
-GAR=asia-southeast1-docker.pkg.dev/peaceful-basis-329822/kiln
+GAR=asia-southeast1-docker.pkg.dev/peaceful-basis-329822/sprout
 TAG=$(git rev-parse HEAD)
 
 gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
 # Build all Python services
-for svc in registry_api:kiln_registry.main:app:8766:registry-api \
-           chat_backend:kiln_chat_backend.main:app:8765:chat-backend \
-           tool_executor:kiln_executor.main:app:8767:tool-executor \
-           mcp_server:kiln_mcp.main:app:8768:mcp-server \
-           synthesis_service:kiln_synthesis.main:app:8002:synthesis-service; do
+for svc in registry_api:sprout_registry.main:app:8766:registry-api \
+           chat_backend:sprout_chat_backend.main:app:8765:chat-backend \
+           tool_executor:sprout_executor.main:app:8767:tool-executor \
+           mcp_server:sprout_mcp.main:app:8768:mcp-server \
+           synthesis_service:sprout_synthesis.main:app:8002:synthesis-service; do
   IFS=: read -r SERVICE MODULE PORT IMAGE <<< "$svc"
   docker build -f docker/Dockerfile.python.prod \
     --build-arg SERVICE="$SERVICE" \
@@ -531,27 +530,27 @@ cd infra/tanka
 jb install
 
 tk apply environments/default \
-  --ext-str IMAGE_REGISTRY="asia-southeast1-docker.pkg.dev/peaceful-basis-329822/kiln" \
+  --ext-str IMAGE_REGISTRY="asia-southeast1-docker.pkg.dev/peaceful-basis-329822/sprout" \
   --ext-str IMAGE_TAG="$TAG" \
-  --ext-str GCS_BUCKET="peaceful-basis-329822-kiln-tools" \
-  --ext-str WORKLOAD_SA="kiln-dev-workload@peaceful-basis-329822.iam.gserviceaccount.com" \
+  --ext-str GCS_BUCKET="peaceful-basis-329822-sprout-tools" \
+  --ext-str WORKLOAD_SA="sprout-dev-workload@peaceful-basis-329822.iam.gserviceaccount.com" \
   --ext-str INGRESS_IP="34.36.172.184" \
-  --ext-str INGRESS_IP_NAME="kiln-dev-ingress-ip" \
-  --ext-str PG_BACKUP_BUCKET="peaceful-basis-329822-kiln-pg-backups"
+  --ext-str INGRESS_IP_NAME="sprout-dev-ingress-ip" \
+  --ext-str PG_BACKUP_BUCKET="peaceful-basis-329822-sprout-pg-backups"
 ```
 
 ### Step 6: Verify
 
 ```bash
-kubectl get pods -n kiln
-kubectl rollout status deployment/registry-api -n kiln --timeout=120s
-kubectl rollout status deployment/chat-backend -n kiln --timeout=120s
-kubectl rollout status deployment/mcp-server -n kiln --timeout=120s
-kubectl rollout status deployment/synthesis-service -n kiln --timeout=120s
-kubectl rollout status deployment/registry-ui -n kiln --timeout=120s
+kubectl get pods -n sprout
+kubectl rollout status deployment/registry-api -n sprout --timeout=120s
+kubectl rollout status deployment/chat-backend -n sprout --timeout=120s
+kubectl rollout status deployment/mcp-server -n sprout --timeout=120s
+kubectl rollout status deployment/synthesis-service -n sprout --timeout=120s
+kubectl rollout status deployment/registry-ui -n sprout --timeout=120s
 
 # Check endpoints
-curl -s http://kiln.34.36.172.184.nip.io/livez
+curl -s http://sprout.34.36.172.184.nip.io/livez
 curl -s http://api.34.36.172.184.nip.io/livez
 ```
 
@@ -569,7 +568,7 @@ curl -s http://api.34.36.172.184.nip.io/livez
 | Config management | YAML manifests | Tanka + Jsonnet (k8s-libsonnet 1.32) | Programmable manifests eliminate duplication across 11 services; 33 resources from ~500 lines of Jsonnet |
 | CI/CD | Cloud Build | GitHub Actions with WIF OIDC | Existing GitHub repo, no additional GCP service needed, matrix builds |
 | Container registry | Container Registry (deprecated) | Artifact Registry (asia-southeast1) | Google's recommended replacement, regional for latency |
-| Tool storage | Inline in database | GCS bucket (`peaceful-basis-329822-kiln-tools`) with versioning (5 versions retained) | Separates tool artifacts from metadata; enables future CDN serving |
+| Tool storage | Inline in database | GCS bucket (`peaceful-basis-329822-sprout-tools`) with versioning (5 versions retained) | Separates tool artifacts from metadata; enables future CDN serving |
 | DNS | Custom domain with Cloud DNS | nip.io wildcard DNS | No domain registration required; sufficient for demo/academic use |
 
 ---
@@ -578,13 +577,13 @@ curl -s http://api.34.36.172.184.nip.io/livez
 
 | Output | Description |
 |---|---|
-| `gke_cluster_name` | `kiln-dev-gke` |
+| `gke_cluster_name` | `sprout-dev-gke` |
 | `gke_cluster_zone` | `asia-southeast1-a` |
-| `artifact_registry_url` | `asia-southeast1-docker.pkg.dev/peaceful-basis-329822/kiln` |
-| `gcs_tools_bucket` | `peaceful-basis-329822-kiln-tools` |
-| `gcs_pg_backups_bucket` | `peaceful-basis-329822-kiln-pg-backups` |
+| `artifact_registry_url` | `asia-southeast1-docker.pkg.dev/peaceful-basis-329822/sprout` |
+| `gcs_tools_bucket` | `peaceful-basis-329822-sprout-tools` |
+| `gcs_pg_backups_bucket` | `peaceful-basis-329822-sprout-pg-backups` |
 | `ingress_static_ip` | `34.36.172.184` |
-| `nip_io_domain` | `kiln.34.36.172.184.nip.io` |
+| `nip_io_domain` | `sprout.34.36.172.184.nip.io` |
 | `wif_provider` | Full provider resource path for GitHub Actions OIDC |
 
 ## Appendix B: GCP APIs Enabled
@@ -601,7 +600,7 @@ curl -s http://api.34.36.172.184.nip.io/livez
 
 | Source | Resources | Count |
 |---|---|---|
-| `kiln.libsonnet` | namespace, serviceAccount, configMap, 6x deployment+service pairs, ingress | 16 |
+| `sprout.libsonnet` | namespace, serviceAccount, configMap, 6x deployment+service pairs, ingress | 16 |
 | `postgres.libsonnet` | StatefulSet (with PVC template), headless Service | 2 |
 | `redis.libsonnet` | Deployment, Service | 2 |
 | `monitoring.libsonnet` | prometheus ConfigMap, StatefulSet (with PVC), Service; kube-state-metrics Deployment, Service; grafana datasources ConfigMap, dashboards-provider ConfigMap, Deployment, Service | 9 |

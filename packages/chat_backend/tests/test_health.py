@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def client() -> TestClient:
     """A bare TestClient — startup is a no-op for chat_backend."""
-    from kiln_chat_backend.main import app
+    from sprout_chat_backend.main import app
 
     return TestClient(app)
 
@@ -27,7 +27,7 @@ def test_livez_is_cheap_and_returns_200(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-chat-backend"
+    assert body["service"] == "sprout-chat-backend"
     assert "checks" not in body, "/livez must stay cheap — no dependency checks"
 
 
@@ -57,7 +57,7 @@ class _FakeAsyncClient:
 
 def _patch_httpx(monkeypatch: pytest.MonkeyPatch, responses: dict[str, int]) -> None:
     """Replace async_client inside chat_backend.main with our fake."""
-    import kiln_chat_backend.main as main_mod
+    import sprout_chat_backend.main as main_mod
 
     def _fake_async_client(**_kw: Any) -> _FakeAsyncClient:
         return _FakeAsyncClient(responses)
@@ -79,7 +79,7 @@ def test_readyz_returns_ok_when_registry_reachable(
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-chat-backend"
+    assert body["service"] == "sprout-chat-backend"
     assert body["checks"]["registry_api"] == "ok"
     assert body["checks"]["synthesis_service"] == "ok"
     assert "active_runs" in body

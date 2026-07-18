@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from kiln_mcp.user_env import _cache, fetch_user_env_vars
+from sprout_mcp.user_env import _cache, fetch_user_env_vars
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +27,7 @@ async def test_returns_env_vars_from_clerk() -> None:
     mock_client.get = AsyncMock(return_value=mock_resp)
 
     with (
-        patch("kiln_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
+        patch("sprout_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
         patch.dict("os.environ", {"CLERK_SECRET_KEY": "sk_test_123"}),
     ):
         result = await fetch_user_env_vars("user_123")
@@ -51,7 +51,7 @@ async def test_returns_empty_dict_on_clerk_error() -> None:
     mock_client.get = AsyncMock(side_effect=_httpx_err.ConnectError("connection refused"))
 
     with (
-        patch("kiln_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
+        patch("sprout_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
         patch.dict("os.environ", {"CLERK_SECRET_KEY": "sk_test_123"}),
     ):
         result = await fetch_user_env_vars("user_123")
@@ -74,7 +74,7 @@ async def test_caches_result() -> None:
     mock_client.get = AsyncMock(return_value=mock_resp)
 
     with (
-        patch("kiln_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
+        patch("sprout_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
         patch.dict("os.environ", {"CLERK_SECRET_KEY": "sk_test_123"}),
     ):
         r1 = await fetch_user_env_vars("user_123")
@@ -99,12 +99,12 @@ async def test_cache_expires_after_ttl() -> None:
     mock_client.get = AsyncMock(return_value=mock_resp)
 
     with (
-        patch("kiln_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
+        patch("sprout_mcp.user_env.httpx.AsyncClient", return_value=mock_client),
         patch.dict("os.environ", {"CLERK_SECRET_KEY": "sk_test_123"}),
     ):
-        with patch("kiln_mcp.user_env.time.time", return_value=1000.0):
+        with patch("sprout_mcp.user_env.time.time", return_value=1000.0):
             await fetch_user_env_vars("user_123")
-        with patch("kiln_mcp.user_env.time.time", return_value=1500.0):
+        with patch("sprout_mcp.user_env.time.time", return_value=1500.0):
             await fetch_user_env_vars("user_123")
 
     assert mock_client.get.call_count == 2

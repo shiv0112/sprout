@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kiln — Start all services via Docker Compose
+# Sprout — Start all services via Docker Compose
 # Hot reload enabled via volume mounts
 # Usage: ./dev.sh
 
@@ -20,7 +20,7 @@ fi
 set -a; source .env; set +a
 export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-$(grep VITE_CLERK packages/chat_ui/.env 2>/dev/null | cut -d= -f2)}"
 
-echo -e "${GREEN}🔥 Kiln — Starting all services with Docker Compose${NC}"
+echo -e "${GREEN}🔥 Sprout — Starting all services with Docker Compose${NC}"
 echo ""
 
 docker compose up --build "$@"

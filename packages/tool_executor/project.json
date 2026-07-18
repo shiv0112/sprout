@@ -3,7 +3,7 @@
   "root": "packages/tool_executor",
   "targets": {
     "dev": {
-      "command": "uv run uvicorn kiln_executor.main:app --host 127.0.0.1 --port 8767 --reload"
+      "command": "uv run uvicorn sprout_executor.main:app --host 127.0.0.1 --port 8767 --reload"
     }
   }
 }

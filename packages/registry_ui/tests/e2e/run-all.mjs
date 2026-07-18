@@ -1,4 +1,4 @@
-// Sequential runner for the Kiln Puppeteer e2e suite.
+// Sequential runner for the Sprout Puppeteer e2e suite.
 //
 // Spawns each test as a separate child process so a crash in one test
 // doesn't take down the whole runner. Streams output live and prints

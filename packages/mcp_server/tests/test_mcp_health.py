@@ -34,7 +34,7 @@ class _FakeAsyncClient:
 
 
 def _patch_httpx(monkeypatch: pytest.MonkeyPatch, responses: dict[str, int]) -> None:
-    import kiln_mcp.main as main_mod
+    import sprout_mcp.main as main_mod
 
     def _fake_async_client(**_kw: Any) -> _FakeAsyncClient:
         return _FakeAsyncClient(responses)
@@ -44,7 +44,7 @@ def _patch_httpx(monkeypatch: pytest.MonkeyPatch, responses: dict[str, int]) -> 
 
 @pytest.mark.asyncio
 async def test_livez_is_cheap_and_returns_200() -> None:
-    from kiln_mcp.main import _livez
+    from sprout_mcp.main import _livez
 
     resp = await _livez(None)  # type: ignore[arg-type]
     assert resp.status_code == 200
@@ -52,7 +52,7 @@ async def test_livez_is_cheap_and_returns_200() -> None:
 
     body = json.loads(resp.body)
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-mcp-server"
+    assert body["service"] == "sprout-mcp-server"
     assert "checks" not in body
 
 
@@ -61,7 +61,7 @@ async def test_readyz_returns_ok_when_registry_reachable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_httpx(monkeypatch, {"http://localhost:8766/livez": 200})
-    from kiln_mcp.main import _readyz
+    from sprout_mcp.main import _readyz
 
     resp = await _readyz(None)  # type: ignore[arg-type]
     assert resp.status_code == 200
@@ -69,7 +69,7 @@ async def test_readyz_returns_ok_when_registry_reachable(
 
     body = json.loads(resp.body)
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-mcp-server"
+    assert body["service"] == "sprout-mcp-server"
     assert body["checks"]["registry_api"] == "ok"
     assert body["checks"]["registered_tools"].startswith("ok")
 
@@ -79,7 +79,7 @@ async def test_readyz_returns_503_when_registry_unreachable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_httpx(monkeypatch, {})  # everything unreachable
-    from kiln_mcp.main import _readyz
+    from sprout_mcp.main import _readyz
 
     resp = await _readyz(None)  # type: ignore[arg-type]
     assert resp.status_code == 503
@@ -92,7 +92,7 @@ async def test_readyz_returns_503_when_registry_unreachable(
 
 def test_build_http_app_exposes_health_routes() -> None:
     """The wrapper app must include /livez /readyz /health routes alongside MCP."""
-    from kiln_mcp.main import build_http_app
+    from sprout_mcp.main import build_http_app
 
     app = build_http_app()
     paths = {

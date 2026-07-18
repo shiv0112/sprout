@@ -1,8 +1,8 @@
-# Kiln
+# Sprout
 
 **A self-evolving tool registry for AI agents.**
 
-Kiln is a platform where AI agents discover, execute, and — when a tool doesn't exist yet — synthesize new tools on the fly. Ask for something in natural language, and Kiln figures out how to do it. No restarts, no hand-wired integrations.
+Sprout is a platform where AI agents discover, execute, and — when a tool doesn't exist yet — synthesize new tools on the fly. Ask for something in natural language, and Sprout figures out how to do it. No restarts, no hand-wired integrations.
 
 ---
 
@@ -12,9 +12,9 @@ Every AI agent framework (LangChain, AG2, CrewAI, Anthropic's MCP) requires you 
 
 ## The Solution
 
-Kiln removes the ceiling:
+Sprout removes the ceiling:
 
-1. **You ask** something in natural language via the Kiln chat UI, any MCP client (Claude Desktop, ChatGPT, Cursor, VS Code Copilot), or the registry HTTP API.
+1. **You ask** something in natural language via the Sprout chat UI, any MCP client (Claude Desktop, ChatGPT, Cursor, VS Code Copilot), or the registry HTTP API.
 2. **ARIA** (the planning agent) decomposes your request into a directed task graph.
 3. If a required tool **doesn't exist**, ARIA triggers **Vibe** (OpenCode/NIM-backed coding agent) to synthesize it — spec + implementation + tests — in seconds.
 4. The new tool is **hot-loaded** into the registry. No restart.
@@ -94,10 +94,10 @@ Every tool is a pair of files on disk: `registry/tools/{id}/{version}/spec.yaml`
 
 **`spec.yaml`** — what the tool does:
 ```yaml
-kiln_version: "1.0"
+sprout_version: "1.0"
 
 tool:
-  id: com.kiln.tools.fetch_url
+  id: com.sprout.tools.fetch_url
   name: fetch_url
   version: "1.0.0"
   description: "Fetch any public URL and return plain-text content with HTML stripped."
@@ -147,18 +147,18 @@ def fetch_url(**kwargs) -> dict:
     return {"title": "...", "content": "...", "success": True}
 ```
 
-The format is framework-agnostic. Kiln's `compiler/` module translates specs to AG2, Mistral, LangChain, or Pydantic AI tool definitions on the fly, so any tool — hand-written or synthesized — works with any supported framework without modification.
+The format is framework-agnostic. Sprout's `compiler/` module translates specs to AG2, Mistral, LangChain, or Pydantic AI tool definitions on the fly, so any tool — hand-written or synthesized — works with any supported framework without modification.
 
 ---
 
 ## MCP Support
 
-Kiln exposes every registered tool over the [Model Context Protocol](https://modelcontextprotocol.io/) via `mcp_server` on port 8768. Standard MCP clients connect and use Kiln tools directly.
+Sprout exposes every registered tool over the [Model Context Protocol](https://modelcontextprotocol.io/) via `mcp_server` on port 8768. Standard MCP clients connect and use Sprout tools directly.
 
 - **Auth**: OAuth 2.1 with PKCE. The MCP server is itself the OAuth Authorization Server; Clerk provides user identity via redirect.
 - **Dynamic client registration** (RFC 7591) is enabled — MCP clients register themselves without manual config.
 - **User context**: once authenticated, the user's saved tool env vars (e.g. `NEWS_API_KEY`, `SERPER_API_KEY`) stored in Clerk `private_metadata` are injected into tool execution automatically.
-- **Hot refresh**: newly synthesized tools become available to MCP clients through 30-second polling (and via the `kiln_refresh_tools` utility tool).
+- **Hot refresh**: newly synthesized tools become available to MCP clients through 30-second polling (and via the `sprout_refresh_tools` utility tool).
 - **Fallback**: if `CLERK_DOMAIN` is unset, the server runs unauthenticated for local dev.
 
 To connect **Claude Desktop** (or any MCP client), point it at `http://localhost:8768/mcp`. The browser will open Clerk's sign-in page, then hand control back to the client.
@@ -179,13 +179,13 @@ Local development without Docker additionally needs Python 3.12+, [uv](https://d
 ### 1. Clone and configure
 
 ```bash
-git clone git@github.com:aryabyte21/kiln.git
-cd kiln
+git clone git@github.com:aryabyte21/sprout.git
+cd sprout
 cp .env.example .env
 # Fill in .env:
 #   MISTRAL_API_KEY, NVIDIA_API_KEY
 #   CLERK_DOMAIN, CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-#   KILN_INTERNAL_SECRET (generate: python -c "import secrets; print(secrets.token_hex(32))")
+#   SPROUT_INTERNAL_SECRET (generate: python -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### 2. Start everything
@@ -214,10 +214,10 @@ uv sync
 cd packages/registry_ui && pnpm install && cd ../..
 
 # Run services individually (each in its own terminal)
-uv run uvicorn kiln_registry.main:app --host 0.0.0.0 --port 8766 --reload
-uv run uvicorn kiln_chat_backend.main:app --host 0.0.0.0 --port 8765 --reload
-uv run uvicorn kiln_synthesis.main:app --host 0.0.0.0 --port 8002
-uv run python -m kiln_mcp.main streamable-http
+uv run uvicorn sprout_registry.main:app --host 0.0.0.0 --port 8766 --reload
+uv run uvicorn sprout_chat_backend.main:app --host 0.0.0.0 --port 8765 --reload
+uv run uvicorn sprout_synthesis.main:app --host 0.0.0.0 --port 8002
+uv run python -m sprout_mcp.main streamable-http
 cd packages/registry_ui && pnpm run dev
 ```
 
@@ -243,15 +243,15 @@ pnpm nx run <project>:<target>   # Nx-cached tasks across the workspace
 ## Repository Layout
 
 ```
-kiln/
+sprout/
 ├── packages/
-│   ├── shared/              # kiln_shared — auth, rate-limit, config, CORS, logging
-│   ├── registry_api/        # kiln_registry — tool CRUD, search, execute, Clerk auth
-│   ├── chat_backend/        # kiln_chat_backend — planner, DAG executor, SSE
-│   ├── synthesis_service/   # kiln_synthesis — OpenCode + NIM wrapper
-│   ├── tool_executor/       # kiln_executor — sandboxed execution
-│   ├── mcp_server/          # kiln_mcp — MCP bridge + OAuth 2.1 AS
-│   │   └── kiln_mcp/auth/   # store, provider, Clerk callback
+│   ├── shared/              # sprout_shared — auth, rate-limit, config, CORS, logging
+│   ├── registry_api/        # sprout_registry — tool CRUD, search, execute, Clerk auth
+│   ├── chat_backend/        # sprout_chat_backend — planner, DAG executor, SSE
+│   ├── synthesis_service/   # sprout_synthesis — OpenCode + NIM wrapper
+│   ├── tool_executor/       # sprout_executor — sandboxed execution
+│   ├── mcp_server/          # sprout_mcp — MCP bridge + OAuth 2.1 AS
+│   │   └── sprout_mcp/auth/   # store, provider, Clerk callback
 │   └── registry_ui/         # Next.js 16 / React 19 / Tailwind 4 / Clerk
 ├── registry/
 │   └── tools/               # All registered tools (spec.yaml + impl.py per version)
@@ -295,17 +295,17 @@ kiln/
 - **OAuth 2.1 + PKCE** for MCP clients — HMAC-signed state, single-use auth codes, paired access/refresh token revocation, client-bound token lookups.
 - **Service-to-service auth** via `X-Internal-Secret` header for inter-service calls inside the Docker network.
 - **Rate limiting** per user/IP via slowapi + Redis.
-- **CORS** strictly allowlisted by `KILN_ENV` — production refuses to start without an explicit `CORS_ORIGINS`.
+- **CORS** strictly allowlisted by `SPROUT_ENV` — production refuses to start without an explicit `CORS_ORIGINS`.
 
 ---
 
 ## Live Deployment
 
-Kiln is deployed on **GKE Standard** in Singapore (`asia-southeast1-a`).
+Sprout is deployed on **GKE Standard** in Singapore (`asia-southeast1-a`).
 
 | Service | URL |
 |---------|-----|
-| Registry UI | https://kiln.35.197.159.116.sslip.io |
+| Registry UI | https://sprout.35.197.159.116.sslip.io |
 | Registry API | https://api.35.197.159.116.sslip.io |
 | Chat Backend | https://chat.35.197.159.116.sslip.io |
 | MCP Server | https://mcp.35.197.159.116.sslip.io |
@@ -315,8 +315,8 @@ Kiln is deployed on **GKE Standard** in Singapore (`asia-southeast1-a`).
 
 - **URL**: https://grafana.35.197.159.116.sslip.io
 - **Username**: `admin`
-- **Password**: `kiln-admin`
-- **Dashboards**: Pre-configured Prometheus datasource. Metrics include `kiln_http_requests_total` (request count by service/method/path/status) and `kiln_http_request_duration_seconds` (latency histogram).
+- **Password**: `sprout-admin`
+- **Dashboards**: Pre-configured Prometheus datasource. Metrics include `sprout_http_requests_total` (request count by service/method/path/status) and `sprout_http_request_duration_seconds` (latency histogram).
 
 ### MCP Client Connection
 
@@ -332,15 +332,11 @@ https://mcp.35.197.159.116.sslip.io/mcp
 - **Observability**: Self-hosted Prometheus + Grafana
 - **CI/CD**: Push to `main` triggers automated test, build, and deploy via GitHub Actions + Workload Identity Federation
 - **IaC**: Terraform (GCP infra) + Tanka/Jsonnet (Kubernetes manifests)
-- **Cost**: ~$70/month on $380 student credits (~5 months runway)
+- **Cost**: ~$70/month
 
 See `docs/infrastructure-report.md` for full deployment documentation.
 
 ---
-
-## Project Status
-
-Kiln is a **CS5224 Cloud Computing** project at NUS (AY2025/26 Semester 2). See `docs/Final-Report.md` for the submission report and `docs/infrastructure-report.md` for deployment architecture.
 
 ## AI Declaration
 

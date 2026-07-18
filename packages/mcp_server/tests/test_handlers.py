@@ -12,8 +12,8 @@ import asyncio
 
 import pytest
 
-from kiln_mcp import tools as tool_module
-from kiln_mcp.tools import _build_mcp_tool_schema, _make_tool_handler
+from sprout_mcp import tools as tool_module
+from sprout_mcp.tools import _build_mcp_tool_schema, _make_tool_handler
 
 # ── _build_mcp_tool_schema ───────────────────────────────────────────────────
 
@@ -37,8 +37,8 @@ def test_single_required_string_param() -> None:
     assert schema["required"] == ["city"]
 
 
-def test_kiln_type_to_jsonschema_type_mapping() -> None:
-    """Every supported Kiln type must map to the right JSON Schema type."""
+def test_sprout_type_to_jsonschema_type_mapping() -> None:
+    """Every supported Sprout type must map to the right JSON Schema type."""
     spec = {
         "params": [
             {"name": "s", "type": "str"},
@@ -59,7 +59,7 @@ def test_kiln_type_to_jsonschema_type_mapping() -> None:
 
 
 def test_unknown_type_falls_back_to_string() -> None:
-    """An unknown Kiln type must not crash — fall back to string."""
+    """An unknown Sprout type must not crash — fall back to string."""
     spec = {"params": [{"name": "weird", "type": "totally_made_up"}]}
     schema = _build_mcp_tool_schema(spec)
     assert schema["properties"]["weird"]["type"] == "string"
@@ -119,7 +119,7 @@ def test_make_tool_handler_returns_named_async_callable() -> None:
         "description": "Get the weather",
         "params": [{"name": "city", "type": "str", "required": True}],
     }
-    handler = _make_tool_handler("com.kiln.tools.weather", spec)
+    handler = _make_tool_handler("com.sprout.tools.weather", spec)
 
     assert callable(handler)
     assert handler.__name__ == "weather"
@@ -144,7 +144,7 @@ def test_make_tool_handler_signature_matches_params() -> None:
             {"name": "to_currency", "type": "str", "required": False, "default": "USD"},
         ],
     }
-    handler = _make_tool_handler("com.kiln.tools.convert", spec)
+    handler = _make_tool_handler("com.sprout.tools.convert", spec)
     sig = inspect.signature(handler)
 
     assert list(sig.parameters.keys()) == ["amount", "from_currency", "to_currency"]

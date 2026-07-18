@@ -1,4 +1,4 @@
-"""Regression tests for ``KilnPlanner._call_planner`` content-coercion.
+"""Regression tests for ``SproutPlanner._call_planner`` content-coercion.
 
 The Mistral SDK's ``response.choices[0].message.content`` can be:
 - a plain ``str``
@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from kiln_chat_backend.planner import KilnPlanner
+from sprout_chat_backend.planner import SproutPlanner
 
 # A minimal valid task-graph JSON the planner is "supposed" to return.
 SAMPLE_GRAPH = {
@@ -41,32 +41,32 @@ def _build_response(content: object) -> SimpleNamespace:
 
 
 @pytest.fixture
-def planner(monkeypatch: pytest.MonkeyPatch) -> KilnPlanner:
-    """A KilnPlanner with no real Mistral client.
+def planner(monkeypatch: pytest.MonkeyPatch) -> SproutPlanner:
+    """A SproutPlanner with no real Mistral client.
 
     The constructor builds a real ``Mistral(api_key=...)`` so we replace
     its ``chat.complete`` method on the instance with a stub via
     ``setattr`` once the test sets ``_next_response``.
     """
-    p = KilnPlanner(api_key="dummy-key-not-used")
+    p = SproutPlanner(api_key="dummy-key-not-used")
     return p
 
 
-def _stub_complete(planner: KilnPlanner, content: object) -> None:
+def _stub_complete(planner: SproutPlanner, content: object) -> None:
     """Replace the primary provider's ``chat.completions.create`` (OpenAI SDK
     shape) to return ``content``."""
     response = _build_response(content)
     planner._client.chat.completions.create = lambda **kwargs: response  # type: ignore[assignment,method-assign]
 
 
-def test_str_content_parses(planner: KilnPlanner) -> None:
+def test_str_content_parses(planner: SproutPlanner) -> None:
     """The classic case: content is a JSON string."""
     _stub_complete(planner, SAMPLE_GRAPH_JSON)
     graph = planner._call_planner("test request", tools=[])
     assert graph == SAMPLE_GRAPH
 
 
-def test_list_of_chunks_content_parses(planner: KilnPlanner) -> None:
+def test_list_of_chunks_content_parses(planner: SproutPlanner) -> None:
     """Content is split across multiple TextChunk-like objects.
 
     This is the shape mentioned by the Mistral SDK type hints — multimodal
@@ -85,7 +85,7 @@ def test_list_of_chunks_content_parses(planner: KilnPlanner) -> None:
     assert graph == SAMPLE_GRAPH
 
 
-def test_none_content_falls_back_to_single_node(planner: KilnPlanner) -> None:
+def test_none_content_falls_back_to_single_node(planner: SproutPlanner) -> None:
     """``content is None`` must not raise — the planner must produce a fallback graph.
 
     This is the bug shape that was masked before the iter-12 fix:
@@ -101,7 +101,7 @@ def test_none_content_falls_back_to_single_node(planner: KilnPlanner) -> None:
     assert graph["nodes"][0]["id"] == "fallback"
 
 
-def test_list_with_non_text_elements_skips_them(planner: KilnPlanner) -> None:
+def test_list_with_non_text_elements_skips_them(planner: SproutPlanner) -> None:
     """Chunks without a ``.text`` attribute (e.g. images) are silently ignored."""
     image_chunk = SimpleNamespace(image_url="https://example.com/x.png")
     text_chunk = SimpleNamespace(text=SAMPLE_GRAPH_JSON)
@@ -111,7 +111,7 @@ def test_list_with_non_text_elements_skips_them(planner: KilnPlanner) -> None:
     assert graph == SAMPLE_GRAPH
 
 
-def test_invalid_json_falls_back_to_single_node(planner: KilnPlanner) -> None:
+def test_invalid_json_falls_back_to_single_node(planner: SproutPlanner) -> None:
     """If Mistral returns broken JSON, fall back gracefully.
 
     Pin the iter-12 behavior: a JSONDecodeError yields a single-node fallback

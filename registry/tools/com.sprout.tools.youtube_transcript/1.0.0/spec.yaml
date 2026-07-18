@@ -1,0 +1,66 @@
+sprout_version: "1.0"
+
+tool:
+  id: com.sprout.tools.youtube_transcript
+  name: youtube_transcript
+  version: 1.0.0
+  description: "Fetch the full spoken transcript of any YouTube video that has captions, plus the title and channel name. No API key required."
+  author: sprout
+
+interface:
+  inputs:
+    - name: video
+      type: string
+      description: "YouTube URL, youtu.be link, shorts link, or 11-char video ID."
+      required: true
+    - name: language
+      type: string
+      description: "Preferred caption language code."
+      required: false
+      default: "en"
+    - name: preserve_timing
+      type: boolean
+      description: "Return per-segment start/duration alongside the text."
+      required: false
+      default: false
+  outputs:
+    - name: success
+      type: boolean
+    - name: video_id
+      type: string
+    - name: title
+      type: string
+      description: Video title (via YouTube oEmbed).
+    - name: author
+      type: string
+      description: Channel name (via YouTube oEmbed).
+    - name: language
+      type: string
+    - name: is_generated
+      type: boolean
+      description: Whether the captions are auto-generated.
+    - name: text
+      type: string
+    - name: char_count
+      type: integer
+    - name: segments
+      type: array
+    - name: url
+      type: string
+
+implementation:
+  runtime: python3.10
+  entrypoint: youtube_transcript.py
+  dependencies:
+    - requests>=2.28.0
+    - youtube-transcript-api>=0.6.2
+
+testing:
+  fixtures:
+    - input:
+        video: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      expected_output_contains: [success, video_id, text]
+
+metadata:
+  tags: [youtube, transcript, video, content, no-api-key]
+  category: data

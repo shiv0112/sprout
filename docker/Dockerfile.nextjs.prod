@@ -1,7 +1,7 @@
-# Multi-stage production Dockerfile for Kiln Registry UI (Next.js).
+# Multi-stage production Dockerfile for Sprout Registry UI (Next.js).
 #
 # Build from repo root:
-#   docker build -f docker/Dockerfile.nextjs.prod -t kiln-registry-ui .
+#   docker build -f docker/Dockerfile.nextjs.prod -t sprout-registry-ui .
 
 # ── Stage 1: Install dependencies ──────────────────────────────────────────
 FROM node:22-alpine AS deps
@@ -39,13 +39,13 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000
 
-RUN addgroup -g 1001 -S kiln && adduser -S kiln -u 1001 -G kiln
+RUN addgroup -g 1001 -S sprout && adduser -S sprout -u 1001 -G sprout
 
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=kiln:kiln /app/.next/standalone/app/ ./
-COPY --from=builder --chown=kiln:kiln /app/.next/static ./.next/static
+COPY --from=builder --chown=sprout:sprout /app/.next/standalone/app/ ./
+COPY --from=builder --chown=sprout:sprout /app/.next/static ./.next/static
 
-USER kiln
+USER sprout
 
 EXPOSE 3000
 

@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  Flame,
+  Sprout,
   Key,
   Loader2,
   Search,
@@ -49,16 +49,16 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input"
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion"
-import { KilnDag, type DagPlan, type NodeStatus } from "@/components/kiln-dag"
+import { SproutDag, type DagPlan, type NodeStatus } from "@/components/sprout-dag"
 
 const REGISTRY_URL =
   process.env.NEXT_PUBLIC_REGISTRY_URL || "http://localhost:8766"
 const CHAT_BACKEND =
   process.env.NEXT_PUBLIC_CHAT_BACKEND || "http://localhost:8765"
 
-const CONFIG_PREFIX = "__KILN_CONFIG__"
-const TRACE_RE = /^__KILN_TRACE__([\s\S]+?)__END__/
-const ATTACHMENTS_RE = /^__KILN_ATTACHMENTS__([\s\S]+?)__END__/
+const CONFIG_PREFIX = "__SPROUT_CONFIG__"
+const TRACE_RE = /^__SPROUT_TRACE__([\s\S]+?)__END__/
+const ATTACHMENTS_RE = /^__SPROUT_ATTACHMENTS__([\s\S]+?)__END__/
 
 export interface Attachment {
   id: string
@@ -178,7 +178,7 @@ function buildFallbackPlan(
   nodes: Array<{ id: string; role: string; task?: string; tools: string[] }>,
 ): DagPlan {
   return {
-    task: "Kiln execution",
+    task: "Sprout execution",
     nodes: nodes.map((node) => ({
       id: node.id,
       role: node.role,
@@ -465,7 +465,7 @@ function ExecutionPanel({
         </div>
 
         {state.plan && (
-          <KilnDag
+          <SproutDag
             plan={state.plan}
             nodeStatuses={state.nodeStatuses}
             nodeResults={state.nodeResults}
@@ -505,13 +505,13 @@ export default function ChatPage() {
           <div className="relative">
             <span className="absolute -inset-4 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 blur-xl" />
             <div className="relative flex size-16 items-center justify-center rounded-2xl border border-primary/30 bg-primary/15">
-              <Flame className="size-8 text-primary" />
+              <Sprout className="size-8 text-primary" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <p className="text-xl font-semibold tracking-tight">Sign in to use Kiln</p>
+            <p className="text-xl font-semibold tracking-tight">Sign in to use Sprout</p>
             <p className="text-sm text-muted-foreground">
-              Describe a task in natural language. Kiln plans, synthesizes tools, and executes.
+              Describe a task in natural language. Sprout plans, synthesizes tools, and executes.
             </p>
           </div>
           <SignInButton mode="modal">
@@ -520,13 +520,13 @@ export default function ChatPage() {
         </div>
       </Show>
       <Show when="signed-in">
-        <KilnChat />
+        <SproutChat />
       </Show>
     </>
   )
 }
 
-function KilnChat() {
+function SproutChat() {
   const { getToken } = useAuth()
   const {
     hydrated,
@@ -623,12 +623,12 @@ function KilnChat() {
         finished = true
         const tracePrefix =
           trace.length > 0
-            ? `__KILN_TRACE__${JSON.stringify(trace)}__END__`
+            ? `__SPROUT_TRACE__${JSON.stringify(trace)}__END__`
             : ""
         const attList = Object.values(attachments)
         const attPrefix =
           attList.length > 0
-            ? `__KILN_ATTACHMENTS__${JSON.stringify(attList)}__END__`
+            ? `__SPROUT_ATTACHMENTS__${JSON.stringify(attList)}__END__`
             : ""
         appendAssistantMessage(tracePrefix + attPrefix + answer)
         setStreamState(null)
@@ -651,7 +651,7 @@ function KilnChat() {
       }
 
       try {
-        const response = await fetch(`${CHAT_BACKEND}/kiln/stream/${runId}`, {
+        const response = await fetch(`${CHAT_BACKEND}/sprout/stream/${runId}`, {
           headers,
           signal: controller.signal,
         })
@@ -688,7 +688,7 @@ function KilnChat() {
               case "plan_ready":
               case "plan_updated": {
                 const plan: DagPlan = {
-                  task: typeof event.task === "string" ? event.task : "Kiln execution",
+                  task: typeof event.task === "string" ? event.task : "Sprout execution",
                   nodes: Array.isArray(event.nodes)
                     ? event.nodes.map((node) => ({
                         id: String((node as Record<string, unknown>).id),
@@ -913,7 +913,7 @@ function KilnChat() {
         }
         if (token) headers.Authorization = `Bearer ${token}`
 
-        const response = await fetch(`${CHAT_BACKEND}/kiln/start`, {
+        const response = await fetch(`${CHAT_BACKEND}/sprout/start`, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -999,7 +999,7 @@ function KilnChat() {
 
         // Execute with the provided keys
         const runId = configPrompt.runId
-        const execResp = await fetch(`${CHAT_BACKEND}/kiln/execute/${runId}`, {
+        const execResp = await fetch(`${CHAT_BACKEND}/sprout/execute/${runId}`, {
           method: "POST",
           headers,
           body: JSON.stringify({ env_vars: nonEmpty }),
@@ -1083,11 +1083,11 @@ function KilnChat() {
                   <div className="relative">
                     <span className="absolute -inset-4 animate-pulse rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 blur-2xl" />
                     <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/30">
-                      <Flame className="size-8 text-primary" />
+                      <Sprout className="size-8 text-primary" />
                     </div>
                   </div>
                 }
-                title="Ask Kiln anything"
+                title="Ask Sprout anything"
                 description="Explore the registry, find tools, learn how to publish, or get help with your setup."
               >
                 <Suggestions className="mt-2 max-w-2xl">
@@ -1176,14 +1176,14 @@ function KilnChat() {
             <PromptInput onSubmit={handlePromptSubmit}>
               <PromptInputBody>
                 <PromptInputTextarea
-                  placeholder="Ask Kiln something..."
+                  placeholder="Ask Sprout something..."
                   disabled={isLoading}
                 />
               </PromptInputBody>
               <PromptInputFooter>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-                  <Flame className="size-3 text-primary/70" />
-                  Powered by Kiln
+                  <Sprout className="size-3 text-primary/70" />
+                  Powered by Sprout
                 </div>
                 <PromptInputSubmit disabled={isLoading}>
                   {isLoading ? (

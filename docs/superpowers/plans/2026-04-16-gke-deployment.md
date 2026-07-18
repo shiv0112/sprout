@@ -1,14 +1,14 @@
-# Kiln GKE Deployment — Implementation Plan
+# Sprout GKE Deployment — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deploy all Kiln services to a single GKE Standard zonal cluster in Singapore with in-cluster Postgres + Redis, self-hosted Grafana/Prometheus, and automated CI/CD — all for ~$70/month on $380 student credits.
+**Goal:** Deploy all Sprout services to a single GKE Standard zonal cluster in Singapore with in-cluster Postgres + Redis, self-hosted Grafana/Prometheus, and automated CI/CD — all for ~$70/month.
 
 **Architecture:** One e2-standard-2 on-demand node (2 vCPU, 8 GB) holds everything: 6 app services, Postgres StatefulSet, Redis, Prometheus, Grafana. A spot burst pool (0-3 e2-small) activates only during load tests. GCP L7 Load Balancer with nip.io domains for free DNS. Init container runs Alembic migrations before registry-api starts. Chat-backend uses Recreate strategy + Redis leader lock (from PR #30).
 
 **Tech Stack:** Terraform (GCP infra), Tanka/Jsonnet (k8s manifests), Prometheus + Grafana (observability), GitHub Actions (CI/CD), cert-manager (TLS), nip.io (free DNS)
 
-**Existing infra to rewrite:** `infra/terraform/main.tf` (Autopilot + Cloud SQL -> Standard + in-cluster), `infra/tanka/lib/kiln.libsonnet` (add data tier, fix probes, add init container), `.github/workflows/deploy.yml` (add test gate, fix deploy flow)
+**Existing infra to rewrite:** `infra/terraform/main.tf` (Autopilot + Cloud SQL -> Standard + in-cluster), `infra/tanka/lib/sprout.libsonnet` (add data tier, fix probes, add init container), `.github/workflows/deploy.yml` (add test gate, fix deploy flow)
 
 ---
 
@@ -25,12 +25,12 @@ The state bucket must be created manually first (Terraform can't create its own 
 - [ ] **Step 1: Create the state bucket (one-time manual)**
 
 ```bash
-gcloud storage buckets create gs://kiln-cs5224-tfstate \
-  --project=kiln-cs5224 \
+gcloud storage buckets create gs://sprout-cs5224-tfstate \
+  --project=sprout-cs5224 \
   --location=asia-southeast1 \
   --uniform-bucket-level-access \
   --public-access-prevention
-gcloud storage buckets update gs://kiln-cs5224-tfstate --versioning
+gcloud storage buckets update gs://sprout-cs5224-tfstate --versioning
 ```
 
 - [ ] **Step 2: Write backend.tf**
@@ -39,7 +39,7 @@ gcloud storage buckets update gs://kiln-cs5224-tfstate --versioning
 # infra/terraform/backend.tf
 terraform {
   backend "gcs" {
-    bucket = "kiln-cs5224-tfstate"
+    bucket = "sprout-cs5224-tfstate"
     prefix = "terraform/state"
   }
 }
@@ -51,7 +51,7 @@ Replace the entire `infra/terraform/main.tf` with this starting block (we'll add
 
 ```hcl
 # infra/terraform/main.tf
-# Kiln GKE Standard deployment — Singapore, single zone, in-cluster data tier.
+# Sprout GKE Standard deployment — Singapore, single zone, in-cluster data tier.
 
 terraform {
   required_version = ">= 1.5"
@@ -71,7 +71,7 @@ provider "google" {
 locals {
   zone = "${var.region}-a"
   env  = var.environment
-  name = "kiln-${local.env}"
+  name = "sprout-${local.env}"
 }
 
 # Enable required APIs
@@ -123,7 +123,7 @@ variable "billing_account_id" {
 
 ```bash
 cd infra/terraform
-terraform init -backend-config="bucket=kiln-cs5224-tfstate"
+terraform init -backend-config="bucket=sprout-cs5224-tfstate"
 ```
 
 Expected: `Terraform has been successfully initialized!`
@@ -178,7 +178,7 @@ resource "google_compute_address" "ingress_ip" {
 - [ ] **Step 2: Verify with terraform plan**
 
 ```bash
-terraform plan -var="project_id=kiln-cs5224" -target=google_compute_network.vpc -target=google_compute_subnetwork.subnet -target=google_compute_address.ingress_ip
+terraform plan -var="project_id=sprout-cs5224" -target=google_compute_network.vpc -target=google_compute_subnetwork.subnet -target=google_compute_address.ingress_ip
 ```
 
 Expected: `Plan: 3 to add, 0 to change, 0 to destroy.`
@@ -202,7 +202,7 @@ git commit -m "terraform: VPC, subnet, static IP for GKE"
 ```hcl
 # ── GKE Standard Cluster ─────────────────────────────────────────────────
 
-resource "google_container_cluster" "kiln" {
+resource "google_container_cluster" "sprout" {
   name     = "${local.name}-gke"
   location = local.zone
 
@@ -236,7 +236,7 @@ resource "google_container_cluster" "kiln" {
   master_authorized_networks_config {
     cidr_blocks {
       cidr_block   = "0.0.0.0/0"
-      display_name = "All (for student dev — tighten in prod)"
+      display_name = "All (for dev — tighten in prod)"
     }
   }
 
@@ -247,7 +247,7 @@ resource "google_container_cluster" "kiln" {
 resource "google_container_node_pool" "main" {
   name     = "main-pool"
   location = local.zone
-  cluster  = google_container_cluster.kiln.name
+  cluster  = google_container_cluster.sprout.name
 
   initial_node_count = 1
 
@@ -260,7 +260,7 @@ resource "google_container_node_pool" "main" {
     machine_type    = "e2-standard-2"
     disk_size_gb    = 50
     disk_type       = "pd-balanced"
-    service_account = google_service_account.kiln_workload.email
+    service_account = google_service_account.sprout_workload.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
     workload_metadata_config {
@@ -282,7 +282,7 @@ resource "google_container_node_pool" "main" {
 resource "google_container_node_pool" "burst" {
   name     = "burst-pool"
   location = local.zone
-  cluster  = google_container_cluster.kiln.name
+  cluster  = google_container_cluster.sprout.name
 
   initial_node_count = 0
 
@@ -296,7 +296,7 @@ resource "google_container_node_pool" "burst" {
     disk_size_gb    = 30
     disk_type       = "pd-standard"
     spot            = true
-    service_account = google_service_account.kiln_workload.email
+    service_account = google_service_account.sprout_workload.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
 
     workload_metadata_config {
@@ -324,10 +324,10 @@ resource "google_container_node_pool" "burst" {
 - [ ] **Step 2: Terraform plan — expect cluster + 2 node pools + removal of default pool**
 
 ```bash
-terraform plan -var="project_id=kiln-cs5224"
+terraform plan -var="project_id=sprout-cs5224"
 ```
 
-Expected: includes `google_container_cluster.kiln`, `google_container_node_pool.main`, `google_container_node_pool.burst`
+Expected: includes `google_container_cluster.sprout`, `google_container_node_pool.main`, `google_container_node_pool.burst`
 
 - [ ] **Step 3: Commit**
 
@@ -348,15 +348,15 @@ git commit -m "terraform: GKE Standard zonal cluster + main/burst node pools"
 ```hcl
 # ── Storage ───────────────────────────────────────────────────────────────
 
-resource "google_artifact_registry_repository" "kiln" {
+resource "google_artifact_registry_repository" "sprout" {
   location      = var.region
-  repository_id = "kiln"
+  repository_id = "sprout"
   format        = "DOCKER"
   depends_on    = [google_project_service.apis]
 }
 
 resource "google_storage_bucket" "tools" {
-  name     = "${var.project_id}-kiln-tools"
+  name     = "${var.project_id}-sprout-tools"
   location = var.region
 
   uniform_bucket_level_access = true
@@ -376,7 +376,7 @@ resource "google_storage_bucket" "tools" {
 
 # Bucket for Postgres backups (pg_dump CronJob target)
 resource "google_storage_bucket" "pg_backups" {
-  name     = "${var.project_id}-kiln-pg-backups"
+  name     = "${var.project_id}-sprout-pg-backups"
   location = var.region
 
   uniform_bucket_level_access = true
@@ -411,39 +411,39 @@ git commit -m "terraform: Artifact Registry + GCS buckets (tools + pg backups)"
 ```hcl
 # ── IAM ───────────────────────────────────────────────────────────────────
 
-resource "google_service_account" "kiln_workload" {
+resource "google_service_account" "sprout_workload" {
   account_id   = "${local.name}-workload"
-  display_name = "Kiln workload identity SA"
+  display_name = "Sprout workload identity SA"
   depends_on   = [google_project_service.apis]
 }
 
 # Let k8s SA impersonate GCP SA via Workload Identity
 resource "google_service_account_iam_member" "workload_identity" {
-  service_account_id = google_service_account.kiln_workload.name
+  service_account_id = google_service_account.sprout_workload.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[kiln/kiln-sa]"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[sprout/sprout-sa]"
 }
 
 # GCS access for tool artifacts
 resource "google_storage_bucket_iam_member" "tools_admin" {
   bucket = google_storage_bucket.tools.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.kiln_workload.email}"
+  member = "serviceAccount:${google_service_account.sprout_workload.email}"
 }
 
 # GCS access for pg backups
 resource "google_storage_bucket_iam_member" "pg_backup_writer" {
   bucket = google_storage_bucket.pg_backups.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.kiln_workload.email}"
+  member = "serviceAccount:${google_service_account.sprout_workload.email}"
 }
 
 # Pull images from Artifact Registry
 resource "google_artifact_registry_repository_iam_member" "reader" {
-  location   = google_artifact_registry_repository.kiln.location
-  repository = google_artifact_registry_repository.kiln.name
+  location   = google_artifact_registry_repository.sprout.location
+  repository = google_artifact_registry_repository.sprout.name
   role       = "roles/artifactregistry.reader"
-  member     = "serviceAccount:${google_service_account.kiln_workload.email}"
+  member     = "serviceAccount:${google_service_account.sprout_workload.email}"
 }
 
 # ── CI/CD Service Account (GitHub Actions via WIF) ────────────────────────
@@ -455,8 +455,8 @@ resource "google_service_account" "github_actions" {
 
 # CI needs to push images
 resource "google_artifact_registry_repository_iam_member" "ci_writer" {
-  location   = google_artifact_registry_repository.kiln.location
-  repository = google_artifact_registry_repository.kiln.name
+  location   = google_artifact_registry_repository.sprout.location
+  repository = google_artifact_registry_repository.sprout.name
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.github_actions.email}"
 }
@@ -488,11 +488,11 @@ git commit -m "terraform: IAM, Workload Identity, CI SA"
 ```hcl
 # ── Budget Alerts ─────────────────────────────────────────────────────────
 
-resource "google_billing_budget" "kiln" {
+resource "google_billing_budget" "sprout" {
   count = var.billing_account_id != "" ? 1 : 0
 
   billing_account = var.billing_account_id
-  display_name    = "Kiln CS5224 - $380 limit"
+  display_name    = "Sprout - $380 limit"
 
   budget_filter {
     projects = ["projects/${var.project_id}"]
@@ -539,11 +539,11 @@ git commit -m "terraform: billing budget alerts at $50/$150/$250/$300"
 
 ```hcl
 output "gke_cluster_name" {
-  value = google_container_cluster.kiln.name
+  value = google_container_cluster.sprout.name
 }
 
 output "gke_cluster_endpoint" {
-  value     = google_container_cluster.kiln.endpoint
+  value     = google_container_cluster.sprout.endpoint
   sensitive = true
 }
 
@@ -552,7 +552,7 @@ output "gke_zone" {
 }
 
 output "artifact_registry" {
-  value = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.kiln.repository_id}"
+  value = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.sprout.repository_id}"
 }
 
 output "gcs_bucket" {
@@ -564,7 +564,7 @@ output "pg_backup_bucket" {
 }
 
 output "workload_sa_email" {
-  value = google_service_account.kiln_workload.email
+  value = google_service_account.sprout_workload.email
 }
 
 output "ingress_ip" {
@@ -576,7 +576,7 @@ output "nip_io_domain" {
 }
 
 output "get_credentials_cmd" {
-  value = "gcloud container clusters get-credentials ${google_container_cluster.kiln.name} --zone ${local.zone} --project ${var.project_id}"
+  value = "gcloud container clusters get-credentials ${google_container_cluster.sprout.name} --zone ${local.zone} --project ${var.project_id}"
 }
 
 output "github_ci_sa_email" {
@@ -589,7 +589,7 @@ output "github_ci_sa_email" {
 ```hcl
 # Copy to terraform.tfvars and fill in your values.
 # NEVER commit terraform.tfvars to git.
-project_id         = "kiln-cs5224"
+project_id         = "sprout-cs5224"
 region             = "asia-southeast1"
 environment        = "dev"
 billing_account_id = ""  # Optional: run `gcloud billing accounts list` to find yours
@@ -598,7 +598,7 @@ billing_account_id = ""  # Optional: run `gcloud billing accounts list` to find 
 - [ ] **Step 3: Full terraform plan**
 
 ```bash
-terraform plan -var="project_id=kiln-cs5224" -out=plan.tfplan
+terraform plan -var="project_id=sprout-cs5224" -out=plan.tfplan
 ```
 
 Expected resources (12-15 total): VPC, subnet, static IP, GKE cluster, 2 node pools, AR repo, 2 GCS buckets, 2 SAs, 4 IAM bindings, API services, optional budget.
@@ -630,7 +630,7 @@ local k = import 'k.libsonnet';
 
 {
   _config+:: {
-    pg_password: error 'must set _config.pg_password (or use kiln-secrets)',
+    pg_password: error 'must set _config.pg_password (or use sprout-secrets)',
     pg_backup_bucket: '',
   },
 
@@ -643,9 +643,9 @@ local k = import 'k.libsonnet';
         k.core.v1.container.new('postgres', 'postgres:17-alpine')
         + k.core.v1.container.withPorts([k.core.v1.containerPort.new(port)])
         + k.core.v1.container.withEnv([
-          k.core.v1.envVar.new('POSTGRES_DB', 'kiln_registry'),
-          k.core.v1.envVar.new('POSTGRES_USER', 'kiln'),
-          k.core.v1.envVar.fromSecretRef('POSTGRES_PASSWORD', 'kiln-secrets', 'PG_PASSWORD'),
+          k.core.v1.envVar.new('POSTGRES_DB', 'sprout_registry'),
+          k.core.v1.envVar.new('POSTGRES_USER', 'sprout'),
+          k.core.v1.envVar.fromSecretRef('POSTGRES_PASSWORD', 'sprout-secrets', 'PG_PASSWORD'),
           k.core.v1.envVar.new('PGDATA', '/var/lib/postgresql/data/pgdata'),
         ])
         + k.core.v1.container.withVolumeMounts([
@@ -653,10 +653,10 @@ local k = import 'k.libsonnet';
         ])
         + k.core.v1.container.resources.withRequests({ cpu: '250m', memory: '256Mi' })
         + k.core.v1.container.resources.withLimits({ cpu: '500m', memory: '512Mi' })
-        + k.core.v1.container.livenessProbe.exec.withCommand(['pg_isready', '-U', 'kiln'])
+        + k.core.v1.container.livenessProbe.exec.withCommand(['pg_isready', '-U', 'sprout'])
         + k.core.v1.container.livenessProbe.withInitialDelaySeconds(15)
         + k.core.v1.container.livenessProbe.withPeriodSeconds(10)
-        + k.core.v1.container.readinessProbe.exec.withCommand(['pg_isready', '-U', 'kiln'])
+        + k.core.v1.container.readinessProbe.exec.withCommand(['pg_isready', '-U', 'sprout'])
         + k.core.v1.container.readinessProbe.withInitialDelaySeconds(5)
         + k.core.v1.container.readinessProbe.withPeriodSeconds(5),
       ])
@@ -682,14 +682,14 @@ local k = import 'k.libsonnet';
           + k.core.v1.container.withCommand(['/bin/sh', '-c', |||
             set -e
             TIMESTAMP=$(date +%%Y%%m%%d-%%H%%M%%S)
-            PGPASSWORD="$PG_PASSWORD" pg_dump -h postgres -U kiln kiln_registry \
+            PGPASSWORD="$PG_PASSWORD" pg_dump -h postgres -U sprout sprout_registry \
               | gzip > /tmp/backup.sql.gz
             # gsutil is not in postgres image — use wget to upload via signed URL
             # For simplicity, mount gcloud-sdk sidecar or use a dedicated backup image
             echo "Backup complete: $TIMESTAMP"
           |||])
           + k.core.v1.container.withEnv([
-            k.core.v1.envVar.fromSecretRef('PG_PASSWORD', 'kiln-secrets', 'PG_PASSWORD'),
+            k.core.v1.envVar.fromSecretRef('PG_PASSWORD', 'sprout-secrets', 'PG_PASSWORD'),
           ]),
         ])
         + k.batch.v1.cronJob.metadata.withNamespace(ns)
@@ -745,25 +745,25 @@ git commit -m "tanka: in-cluster Postgres StatefulSet + Redis Deployment"
 
 ---
 
-### Task 9: Rewrite kiln.libsonnet
+### Task 9: Rewrite sprout.libsonnet
 
 **Files:**
-- Modify: `infra/tanka/lib/kiln.libsonnet` (full rewrite)
+- Modify: `infra/tanka/lib/sprout.libsonnet` (full rewrite)
 
 Changes from existing:
 1. Remove Cloud SQL connection config; add `DATABASE_URL` pointing to in-cluster postgres
-2. Add `REDIS_URL` and `KILN_ENV=prod` to configmap
+2. Add `REDIS_URL` and `SPROUT_ENV=prod` to configmap
 3. Fix probes: `/health` -> `/livez` (liveness) and `/readyz` (readiness)
-4. Add init container on registry-api for `kiln-registry migrate`
+4. Add init container on registry-api for `sprout-registry migrate`
 5. Set chat-backend `strategy: Recreate` + `terminationGracePeriodSeconds: 30`
 6. Add `POD_NAME` env var from downward API (for leader lock identity)
 7. Update ingress to use `nip.io` with static IP annotation
 8. Import postgres.libsonnet and redis.libsonnet
 
-- [ ] **Step 1: Rewrite kiln.libsonnet**
+- [ ] **Step 1: Rewrite sprout.libsonnet**
 
 ```jsonnet
-// kiln.libsonnet — Kiln platform on GKE Standard (single zone, in-cluster data tier).
+// sprout.libsonnet — Sprout platform on GKE Standard (single zone, in-cluster data tier).
 
 local k = import 'k.libsonnet';
 local postgres = import 'postgres.libsonnet';
@@ -771,7 +771,7 @@ local redis = import 'redis.libsonnet';
 
 postgres + redis + {
   _config+:: {
-    namespace: 'kiln',
+    namespace: 'sprout',
     image_registry: error 'must set _config.image_registry',
     image_tag: 'latest',
     gcs_bucket: error 'must set _config.gcs_bucket',
@@ -794,7 +794,7 @@ postgres + redis + {
 
   // ── Service Account ─────────────────────────────────────────────────────
   service_account:
-    k.core.v1.serviceAccount.new('kiln-sa')
+    k.core.v1.serviceAccount.new('sprout-sa')
     + k.core.v1.serviceAccount.metadata.withNamespace($._config.namespace)
     + k.core.v1.serviceAccount.metadata.withAnnotations({
       'iam.gke.io/gcp-service-account': $._config.workload_sa,
@@ -802,24 +802,24 @@ postgres + redis + {
 
   // ── ConfigMap ───────────────────────────────────────────────────────────
   configmap:
-    k.core.v1.configMap.new('kiln-config', {
-      KILN_ENV: 'prod',
+    k.core.v1.configMap.new('sprout-config', {
+      SPROUT_ENV: 'prod',
       REGISTRY_URL: 'http://registry-api:%(registry_api)d' % $._config.ports,
-      KILN_REGISTRY_URL: 'http://registry-api:%(registry_api)d' % $._config.ports,
+      SPROUT_REGISTRY_URL: 'http://registry-api:%(registry_api)d' % $._config.ports,
       SYNTHESIS_URL: 'http://synthesis-service:%(synthesis_service)d' % $._config.ports,
-      KILN_CALLBACK_URL: 'http://registry-api:%(registry_api)d/synthesis/callback' % $._config.ports,
-      KILN_SYNTHESIS_CALLBACK_URL: 'http://registry-api:%(registry_api)d/synthesis/callback' % $._config.ports,
+      SPROUT_CALLBACK_URL: 'http://registry-api:%(registry_api)d/synthesis/callback' % $._config.ports,
+      SPROUT_SYNTHESIS_CALLBACK_URL: 'http://registry-api:%(registry_api)d/synthesis/callback' % $._config.ports,
       TOOL_EXECUTOR_URL: 'http://tool-executor:%(tool_executor)d' % $._config.ports,
-      KILN_MCP_ISSUER_URL: 'http://mcp-server:%(mcp_server)d' % $._config.ports,
-      DATABASE_URL: 'postgresql://kiln:$(PG_PASSWORD)@postgres:5432/kiln_registry',
+      SPROUT_MCP_ISSUER_URL: 'http://mcp-server:%(mcp_server)d' % $._config.ports,
+      DATABASE_URL: 'postgresql://sprout:$(PG_PASSWORD)@postgres:5432/sprout_registry',
       REDIS_URL: 'redis://redis:6379/0',
       GCS_BUCKET: $._config.gcs_bucket,
-      CORS_ORIGINS: 'https://kiln.%s.nip.io' % $._config.ingress_ip,
+      CORS_ORIGINS: 'https://sprout.%s.nip.io' % $._config.ingress_ip,
     })
     + k.core.v1.configMap.metadata.withNamespace($._config.namespace),
 
-  // ── Helper: standard Kiln service ───────────────────────────────────────
-  local kilnService(name, port, image_name, args={}) = {
+  // ── Helper: standard Sprout service ───────────────────────────────────────
+  local sproutService(name, port, image_name, args={}) = {
     local container = k.core.v1.container,
     local deployment = k.apps.v1.deployment,
     local service = k.core.v1.service,
@@ -829,8 +829,8 @@ postgres + redis + {
         container.new(name, '%s/%s:%s' % [$._config.image_registry, image_name, $._config.image_tag])
         + container.withPorts([k.core.v1.containerPort.new(port)])
         + container.withEnvFrom([
-          k.core.v1.envFromSource.configMapRef.withName('kiln-config'),
-          k.core.v1.envFromSource.secretRef.withName('kiln-secrets'),
+          k.core.v1.envFromSource.configMapRef.withName('sprout-config'),
+          k.core.v1.envFromSource.secretRef.withName('sprout-secrets'),
         ])
         + container.withEnv([
           // Downward API — used by leader lock to identify this pod
@@ -855,7 +855,7 @@ postgres + redis + {
         + container.readinessProbe.withPeriodSeconds(5),
       ])
       + deployment.metadata.withNamespace($._config.namespace)
-      + deployment.spec.template.spec.withServiceAccountName('kiln-sa'),
+      + deployment.spec.template.spec.withServiceAccountName('sprout-sa'),
 
     service:
       service.new(name, { app: name }, [{ port: port, targetPort: port }])
@@ -865,7 +865,7 @@ postgres + redis + {
   // ── Services ────────────────────────────────────────────────────────────
 
   // registry-api: gets an init container that runs Alembic migrations
-  registry_api: kilnService('registry-api', $._config.ports.registry_api, 'registry-api', {
+  registry_api: sproutService('registry-api', $._config.ports.registry_api, 'registry-api', {
     cpu_request: '200m', memory_request: '256Mi',
     cpu_limit: '500m', memory_limit: '512Mi',
   }) + {
@@ -875,16 +875,16 @@ postgres + redis + {
           'migrate',
           '%s/registry-api:%s' % [$._config.image_registry, $._config.image_tag]
         )
-        + k.core.v1.container.withCommand(['kiln-registry', 'migrate'])
+        + k.core.v1.container.withCommand(['sprout-registry', 'migrate'])
         + k.core.v1.container.withEnvFrom([
-          k.core.v1.envFromSource.configMapRef.withName('kiln-config'),
-          k.core.v1.envFromSource.secretRef.withName('kiln-secrets'),
+          k.core.v1.envFromSource.configMapRef.withName('sprout-config'),
+          k.core.v1.envFromSource.secretRef.withName('sprout-secrets'),
         ]),
       ]),
   },
 
   // chat-backend: Recreate strategy (single replica, leader lock)
-  chat_backend: kilnService('chat-backend', $._config.ports.chat_backend, 'chat-backend', {
+  chat_backend: sproutService('chat-backend', $._config.ports.chat_backend, 'chat-backend', {
     cpu_request: '200m', memory_request: '256Mi',
     cpu_limit: '500m', memory_limit: '512Mi',
   }) + {
@@ -893,38 +893,38 @@ postgres + redis + {
       + k.apps.v1.deployment.spec.template.spec.withTerminationGracePeriodSeconds(30),
   },
 
-  tool_executor: kilnService('tool-executor', $._config.ports.tool_executor, 'tool-executor', {
+  tool_executor: sproutService('tool-executor', $._config.ports.tool_executor, 'tool-executor', {
     cpu_request: '100m', memory_request: '128Mi',
     cpu_limit: '500m', memory_limit: '512Mi',
   }),
 
-  mcp_server: kilnService('mcp-server', $._config.ports.mcp_server, 'mcp-server', {
+  mcp_server: sproutService('mcp-server', $._config.ports.mcp_server, 'mcp-server', {
     cpu_request: '100m', memory_request: '128Mi',
     cpu_limit: '250m', memory_limit: '256Mi',
   }),
 
-  synthesis_service: kilnService('synthesis-service', $._config.ports.synthesis_service, 'synthesis-service', {
+  synthesis_service: sproutService('synthesis-service', $._config.ports.synthesis_service, 'synthesis-service', {
     cpu_request: '250m', memory_request: '256Mi',
     cpu_limit: '1000m', memory_limit: '1Gi',
   }),
 
-  registry_ui: kilnService('registry-ui', $._config.ports.registry_ui, 'registry-ui', {
+  registry_ui: sproutService('registry-ui', $._config.ports.registry_ui, 'registry-ui', {
     cpu_request: '100m', memory_request: '128Mi',
     cpu_limit: '250m', memory_limit: '256Mi',
   }),
 
   // ── Ingress (GCE L7 LB + nip.io) ──────────────────────────────────────
   ingress:
-    k.networking.v1.ingress.new('kiln-ingress')
+    k.networking.v1.ingress.new('sprout-ingress')
     + k.networking.v1.ingress.metadata.withNamespace($._config.namespace)
     + k.networking.v1.ingress.metadata.withAnnotations({
       'kubernetes.io/ingress.class': 'gce',
-      'kubernetes.io/ingress.global-static-ip-name': 'kiln-dev-ingress-ip',
+      'kubernetes.io/ingress.global-static-ip-name': 'sprout-dev-ingress-ip',
     })
     + k.networking.v1.ingress.spec.withRules([
       local domain = $._config.ingress_ip + '.nip.io';
       {
-        host: 'kiln.%s' % domain,
+        host: 'sprout.%s' % domain,
         http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name: 'registry-ui', port: { number: $._config.ports.registry_ui } } } }] },
       },
       {
@@ -949,7 +949,7 @@ postgres + redis + {
 cd infra/tanka
 jb install
 tk show environments/default \
-  --ext-str IMAGE_REGISTRY=test.example.com/kiln \
+  --ext-str IMAGE_REGISTRY=test.example.com/sprout \
   --ext-str IMAGE_TAG=abc123 \
   --ext-str GCS_BUCKET=test-bucket \
   --ext-str WORKLOAD_SA=test@test.iam.gserviceaccount.com \
@@ -962,8 +962,8 @@ Expected: valid YAML with Deployments, Services, StatefulSet, etc.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add infra/tanka/lib/kiln.libsonnet
-git commit -m "tanka: rewrite kiln.libsonnet for GKE Standard + in-cluster data tier"
+git add infra/tanka/lib/sprout.libsonnet
+git commit -m "tanka: rewrite sprout.libsonnet for GKE Standard + in-cluster data tier"
 ```
 
 ---
@@ -978,13 +978,13 @@ git commit -m "tanka: rewrite kiln.libsonnet for GKE Standard + in-cluster data 
 
 ```jsonnet
 // environments/default/main.jsonnet
-// Kiln prod environment on GKE Standard (asia-southeast1-a).
+// Sprout prod environment on GKE Standard (asia-southeast1-a).
 
-local kiln = import 'kiln.libsonnet';
+local sprout = import 'sprout.libsonnet';
 
-kiln {
+sprout {
   _config+:: {
-    namespace: 'kiln',
+    namespace: 'sprout',
     image_registry: std.extVar('IMAGE_REGISTRY'),
     image_tag: std.extVar('IMAGE_TAG'),
     gcs_bucket: std.extVar('GCS_BUCKET'),
@@ -1008,7 +1008,7 @@ git commit -m "tanka: update main.jsonnet for new config shape"
 
 **Files:**
 - Create: `infra/tanka/lib/networkpolicies.libsonnet`
-- Modify: `infra/tanka/lib/kiln.libsonnet` (add import)
+- Modify: `infra/tanka/lib/sprout.libsonnet` (add import)
 
 - [ ] **Step 1: Write networkpolicies.libsonnet**
 
@@ -1052,7 +1052,7 @@ local k = import 'k.libsonnet';
 }
 ```
 
-- [ ] **Step 2: Import in kiln.libsonnet — add to the imports at top of file**
+- [ ] **Step 2: Import in sprout.libsonnet — add to the imports at top of file**
 
 Add after `local redis = import 'redis.libsonnet';`:
 
@@ -1065,7 +1065,7 @@ And add `netpol +` to the mixin chain at the top: `postgres + redis + netpol + {
 - [ ] **Step 3: Commit**
 
 ```bash
-git add infra/tanka/lib/networkpolicies.libsonnet infra/tanka/lib/kiln.libsonnet
+git add infra/tanka/lib/networkpolicies.libsonnet infra/tanka/lib/sprout.libsonnet
 git commit -m "tanka: NetworkPolicies for synthesis + executor egress isolation"
 ```
 
@@ -1077,9 +1077,9 @@ git commit -m "tanka: NetworkPolicies for synthesis + executor egress isolation"
 
 **Files:**
 - Modify: `packages/shared/pyproject.toml` (add prometheus_client dep)
-- Create: `packages/shared/kiln_shared/metrics.py`
-- Modify: `packages/registry_api/kiln_registry/main.py` (mount /metrics)
-- Modify: `packages/chat_backend/kiln_chat_backend/main.py` (mount /metrics)
+- Create: `packages/shared/sprout_shared/metrics.py`
+- Modify: `packages/registry_api/sprout_registry/main.py` (mount /metrics)
+- Modify: `packages/chat_backend/sprout_chat_backend/main.py` (mount /metrics)
 
 - [ ] **Step 1: Add prometheus_client to shared[server] deps**
 
@@ -1088,10 +1088,10 @@ In `packages/shared/pyproject.toml`, add `"prometheus-client>=0.20"` to the `ser
 - [ ] **Step 2: Write metrics.py**
 
 ```python
-"""Prometheus metrics for Kiln services.
+"""Prometheus metrics for Sprout services.
 
 Mounts a /metrics endpoint on any FastAPI app. Usage:
-    from kiln_shared.metrics import mount_metrics
+    from sprout_shared.metrics import mount_metrics
     mount_metrics(app)
 """
 from __future__ import annotations
@@ -1099,13 +1099,13 @@ from __future__ import annotations
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 REQUEST_COUNT = Counter(
-    "kiln_http_requests_total",
+    "sprout_http_requests_total",
     "Total HTTP requests",
     ["service", "method", "path", "status"],
 )
 
 REQUEST_DURATION = Histogram(
-    "kiln_http_request_duration_seconds",
+    "sprout_http_request_duration_seconds",
     "HTTP request duration",
     ["service", "method", "path"],
     buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
@@ -1140,14 +1140,14 @@ def mount_metrics(app, service_name: str = "unknown") -> None:
 - [ ] **Step 3: Mount in registry_api/main.py — add after `install_cors(app)`:**
 
 ```python
-from kiln_shared.metrics import mount_metrics
+from sprout_shared.metrics import mount_metrics
 mount_metrics(app, "registry_api")
 ```
 
 - [ ] **Step 4: Mount in chat_backend/main.py — add after `install_cors(app)`:**
 
 ```python
-from kiln_shared.metrics import mount_metrics
+from sprout_shared.metrics import mount_metrics
 mount_metrics(app, "chat_backend")
 ```
 
@@ -1156,7 +1156,7 @@ Repeat for mcp_server and tool_executor main.py files.
 - [ ] **Step 5: Verify locally**
 
 ```bash
-uv run uvicorn kiln_registry.main:app --port 8766 &
+uv run uvicorn sprout_registry.main:app --port 8766 &
 curl -s localhost:8766/metrics | head -5
 # Expected: lines starting with "# HELP" or "# TYPE"
 kill %1
@@ -1174,9 +1174,9 @@ Expected: all pass, no lint errors.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/shared/pyproject.toml packages/shared/kiln_shared/metrics.py \
-  packages/registry_api/kiln_registry/main.py \
-  packages/chat_backend/kiln_chat_backend/main.py
+git add packages/shared/pyproject.toml packages/shared/sprout_shared/metrics.py \
+  packages/registry_api/sprout_registry/main.py \
+  packages/chat_backend/sprout_chat_backend/main.py
 git commit -m "feat: add /metrics endpoint to all Python services (prometheus_client)"
 ```
 
@@ -1186,13 +1186,13 @@ git commit -m "feat: add /metrics endpoint to all Python services (prometheus_cl
 
 **Files:**
 - Create: `infra/tanka/lib/monitoring.libsonnet`
-- Modify: `infra/tanka/lib/kiln.libsonnet` (add import)
+- Modify: `infra/tanka/lib/sprout.libsonnet` (add import)
 
 - [ ] **Step 1: Write monitoring.libsonnet**
 
 ```jsonnet
 // monitoring.libsonnet — Self-hosted Prometheus + Grafana on GKE.
-// Prometheus scrapes /metrics from all Kiln pods + node-exporter + kube-state-metrics.
+// Prometheus scrapes /metrics from all Sprout pods + node-exporter + kube-state-metrics.
 // Grafana serves dashboards from ConfigMaps.
 
 local k = import 'k.libsonnet';
@@ -1209,11 +1209,11 @@ local k = import 'k.libsonnet';
             scrape_interval: 15s
             evaluation_interval: 15s
           scrape_configs:
-            - job_name: kiln-services
+            - job_name: sprout-services
               kubernetes_sd_configs:
                 - role: pod
                   namespaces:
-                    names: [kiln]
+                    names: [sprout]
               relabel_configs:
                 - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
                   action: keep
@@ -1259,7 +1259,7 @@ local k = import 'k.libsonnet';
       ])
       + k.apps.v1.statefulSet.metadata.withNamespace(ns)
       + k.apps.v1.statefulSet.spec.withServiceName('prometheus')
-      + k.apps.v1.statefulSet.spec.template.spec.withServiceAccountName('kiln-sa')
+      + k.apps.v1.statefulSet.spec.template.spec.withServiceAccountName('sprout-sa')
       + k.apps.v1.statefulSet.spec.template.spec.withVolumes([
         k.core.v1.volume.fromConfigMap('config', 'prometheus-config'),
       ])
@@ -1286,7 +1286,7 @@ local k = import 'k.libsonnet';
         + k.core.v1.container.resources.withLimits({ cpu: '100m', memory: '128Mi' }),
       ])
       + k.apps.v1.deployment.metadata.withNamespace(ns)
-      + k.apps.v1.deployment.spec.template.spec.withServiceAccountName('kiln-sa'),
+      + k.apps.v1.deployment.spec.template.spec.withServiceAccountName('sprout-sa'),
 
     ksm_service:
       k.core.v1.service.new('kube-state-metrics', { app: 'kube-state-metrics' }, [{ port: 8080, targetPort: 8080 }])
@@ -1299,7 +1299,7 @@ local k = import 'k.libsonnet';
         + k.core.v1.container.withPorts([k.core.v1.containerPort.new(3001)])
         + k.core.v1.container.withEnv([
           k.core.v1.envVar.new('GF_SERVER_HTTP_PORT', '3001'),
-          k.core.v1.envVar.new('GF_SECURITY_ADMIN_PASSWORD', 'kiln-admin'),
+          k.core.v1.envVar.new('GF_SECURITY_ADMIN_PASSWORD', 'sprout-admin'),
           k.core.v1.envVar.new('GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH', '/var/lib/grafana/dashboards/overview.json'),
         ])
         + k.core.v1.container.withVolumeMounts([
@@ -1356,14 +1356,14 @@ local k = import 'k.libsonnet';
 }
 ```
 
-- [ ] **Step 2: Import in kiln.libsonnet**
+- [ ] **Step 2: Import in sprout.libsonnet**
 
 Add import: `local monitoring = import 'monitoring.libsonnet';`
 Add to mixin chain: `postgres + redis + netpol + monitoring + {`
 
-- [ ] **Step 3: Add Prometheus scrape annotations to kilnService helper**
+- [ ] **Step 3: Add Prometheus scrape annotations to sproutService helper**
 
-In the `kilnService` function, add pod annotation so Prometheus auto-discovers it:
+In the `sproutService` function, add pod annotation so Prometheus auto-discovers it:
 
 ```jsonnet
 + deployment.spec.template.metadata.withAnnotations({
@@ -1401,7 +1401,7 @@ Expected: Deployment (8+), Service (8+), StatefulSet (2), ConfigMap (5+), Ingres
 - [ ] **Step 6: Commit**
 
 ```bash
-git add infra/tanka/lib/monitoring.libsonnet infra/tanka/lib/kiln.libsonnet
+git add infra/tanka/lib/monitoring.libsonnet infra/tanka/lib/sprout.libsonnet
 git commit -m "tanka: self-hosted Prometheus + Grafana + kube-state-metrics"
 ```
 
@@ -1413,11 +1413,11 @@ git commit -m "tanka: self-hosted Prometheus + Grafana + kube-state-metrics"
 - Create: `infra/tanka/dashboards/overview.json`
 - Modify: `infra/tanka/lib/monitoring.libsonnet` (load dashboard into ConfigMap)
 
-- [ ] **Step 1: Create a Kiln overview Grafana dashboard**
+- [ ] **Step 1: Create a Sprout overview Grafana dashboard**
 
 Create `infra/tanka/dashboards/overview.json` with a Grafana dashboard JSON that includes panels for:
-- Request rate by service (using `kiln_http_requests_total`)
-- Request duration p50/p95/p99 (using `kiln_http_request_duration_seconds`)
+- Request rate by service (using `sprout_http_requests_total`)
+- Request duration p50/p95/p99 (using `sprout_http_request_duration_seconds`)
 - Error rate (5xx) by service
 - Pod restart count
 - CPU and memory usage per pod
@@ -1467,7 +1467,7 @@ on:
 
 env:
   GCP_REGION: asia-southeast1
-  GKE_CLUSTER: kiln-dev-gke
+  GKE_CLUSTER: sprout-dev-gke
   GKE_ZONE: asia-southeast1-a
 
 jobs:
@@ -1493,23 +1493,23 @@ jobs:
         include:
           - service: registry_api
             image: registry-api
-            module: kiln_registry.main:app
+            module: sprout_registry.main:app
             port: 8766
           - service: chat_backend
             image: chat-backend
-            module: kiln_chat_backend.main:app
+            module: sprout_chat_backend.main:app
             port: 8765
           - service: tool_executor
             image: tool-executor
-            module: kiln_executor.main:app
+            module: sprout_executor.main:app
             port: 8767
           - service: mcp_server
             image: mcp-server
-            module: kiln_mcp.main:app
+            module: sprout_mcp.main:app
             port: 8768
           - service: synthesis_service
             image: synthesis-service
-            module: kiln_synthesis.main:app
+            module: sprout_synthesis.main:app
             port: 8002
     steps:
       - uses: actions/checkout@v4
@@ -1530,8 +1530,8 @@ jobs:
             MODULE=${{ matrix.module }}
             PORT=${{ matrix.port }}
           tags: |
-            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/kiln/${{ matrix.image }}:${{ github.sha }}
-            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/kiln/${{ matrix.image }}:latest
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/sprout/${{ matrix.image }}:${{ github.sha }}
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/sprout/${{ matrix.image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -1556,8 +1556,8 @@ jobs:
           file: docker/Dockerfile.nextjs.prod
           push: true
           tags: |
-            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/kiln/registry-ui:${{ github.sha }}
-            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/kiln/registry-ui:latest
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/sprout/registry-ui:${{ github.sha }}
+            ${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/sprout/registry-ui:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -1587,13 +1587,13 @@ jobs:
         run: cd infra/tanka && jb install
 
       - name: Verify secrets exist
-        run: kubectl get secret kiln-secrets -n kiln
+        run: kubectl get secret sprout-secrets -n sprout
 
       - name: Deploy with Tanka
         run: |
           cd infra/tanka
           tk apply environments/default --dangerous-auto-approve \
-            --ext-str IMAGE_REGISTRY=${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/kiln \
+            --ext-str IMAGE_REGISTRY=${{ env.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/sprout \
             --ext-str IMAGE_TAG=${{ github.sha }} \
             --ext-str GCS_BUCKET=${{ secrets.GCS_BUCKET }} \
             --ext-str WORKLOAD_SA=${{ secrets.WORKLOAD_SA }} \
@@ -1602,9 +1602,9 @@ jobs:
 
       - name: Verify rollout
         run: |
-          kubectl rollout status deployment/registry-api -n kiln --timeout=120s
-          kubectl rollout status deployment/chat-backend -n kiln --timeout=120s
-          kubectl rollout status deployment/registry-ui -n kiln --timeout=120s
+          kubectl rollout status deployment/registry-api -n sprout --timeout=120s
+          kubectl rollout status deployment/chat-backend -n sprout --timeout=120s
+          kubectl rollout status deployment/registry-ui -n sprout --timeout=120s
 ```
 
 - [ ] **Step 2: Commit**
@@ -1625,8 +1625,8 @@ This is not code — it's the exact sequence of commands for the first deploymen
 - [ ] **Step 1: Create GCP project + enable billing**
 
 ```bash
-gcloud projects create kiln-cs5224 --name="Kiln CS5224"
-gcloud config set project kiln-cs5224
+gcloud projects create sprout-cs5224 --name="Sprout CS5224"
+gcloud config set project sprout-cs5224
 # Link billing account (via console or CLI)
 ```
 
@@ -1644,19 +1644,19 @@ terraform apply
 
 ```bash
 # Copy the command from terraform output
-gcloud container clusters get-credentials kiln-dev-gke --zone asia-southeast1-a --project kiln-cs5224
+gcloud container clusters get-credentials sprout-dev-gke --zone asia-southeast1-a --project sprout-cs5224
 kubectl get nodes  # Expect: 1 node, STATUS=Ready
 ```
 
 - [ ] **Step 4: Create secrets**
 
 ```bash
-kubectl create namespace kiln
-kubectl create secret generic kiln-secrets -n kiln \
+kubectl create namespace sprout
+kubectl create secret generic sprout-secrets -n sprout \
   --from-literal=CLERK_DOMAIN=your-app.clerk.accounts.dev \
   --from-literal=CLERK_SECRET_KEY=sk_test_... \
   --from-literal=MISTRAL_API_KEY=... \
-  --from-literal=KILN_INTERNAL_SECRET=$(openssl rand -hex 32) \
+  --from-literal=SPROUT_INTERNAL_SECRET=$(openssl rand -hex 32) \
   --from-literal=PG_PASSWORD=$(openssl rand -hex 16)
 ```
 
@@ -1670,7 +1670,7 @@ for svc in registry_api chat_backend tool_executor mcp_server synthesis_service;
   IMAGE_NAME=$(echo $svc | tr _ -)
   docker build -f docker/Dockerfile.python.prod \
     --build-arg SERVICE=$svc \
-    --build-arg MODULE=kiln_$(echo $svc | cut -d_ -f1).main:app \
+    --build-arg MODULE=sprout_$(echo $svc | cut -d_ -f1).main:app \
     --build-arg PORT=8766 \
     -t $AR/$IMAGE_NAME:initial .
   docker push $AR/$IMAGE_NAME:initial
@@ -1702,10 +1702,10 @@ tk apply environments/default --dangerous-auto-approve \
 - [ ] **Step 7: Verify**
 
 ```bash
-kubectl get pods -n kiln  # All Running
-kubectl get ingress -n kiln  # ADDRESS = the static IP
+kubectl get pods -n sprout  # All Running
+kubectl get ingress -n sprout  # ADDRESS = the static IP
 
-echo "UI:      http://kiln.$INGRESS_IP.nip.io"
+echo "UI:      http://sprout.$INGRESS_IP.nip.io"
 echo "API:     http://api.$INGRESS_IP.nip.io/health"
 echo "Chat:    http://chat.$INGRESS_IP.nip.io/livez"
 echo "MCP:     http://mcp.$INGRESS_IP.nip.io/livez"
@@ -1714,4 +1714,4 @@ echo "Grafana: http://grafana.$INGRESS_IP.nip.io"
 curl -s http://api.$INGRESS_IP.nip.io/health | python3 -m json.tool
 ```
 
-Expected: all return 200, UI loads in browser, Grafana shows login page (admin/kiln-admin).
+Expected: all return 200, UI loads in browser, Grafana shows login page (admin/sprout-admin).

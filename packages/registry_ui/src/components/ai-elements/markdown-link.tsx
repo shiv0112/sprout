@@ -113,7 +113,7 @@ export const MarkdownLink = memo(function MarkdownLink({
               </DialogTitle>
             </div>
             <DialogDescription className="text-[11.5px] leading-relaxed text-muted-foreground/80">
-              You&rsquo;re about to leave Kiln and open a link on{" "}
+              You&rsquo;re about to leave Sprout and open a link on{" "}
               <span className="font-medium text-foreground/85">{host || "an unknown host"}</span>.
             </DialogDescription>
           </DialogHeader>

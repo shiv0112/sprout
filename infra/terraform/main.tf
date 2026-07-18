@@ -14,7 +14,7 @@ provider "google" {
 }
 
 locals {
-  name_prefix = "kiln-${var.environment}"
+  name_prefix = "sprout-${var.environment}"
 }
 
 # ── APIs ───────────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ resource "google_compute_global_address" "ingress_ip" {
 
 # ── GKE Standard Zonal Cluster ─────────────────────────────────────────────────
 
-resource "google_container_cluster" "kiln" {
+resource "google_container_cluster" "sprout" {
   name     = "${local.name_prefix}-gke"
   location = var.zone
 
@@ -111,7 +111,7 @@ resource "google_container_cluster" "kiln" {
 
 resource "google_container_node_pool" "main" {
   name     = "main-pool"
-  cluster  = google_container_cluster.kiln.id
+  cluster  = google_container_cluster.sprout.id
   location = var.zone
 
   node_count = 1
@@ -136,7 +136,7 @@ resource "google_container_node_pool" "main" {
 
 resource "google_container_node_pool" "burst" {
   name     = "burst-pool"
-  cluster  = google_container_cluster.kiln.id
+  cluster  = google_container_cluster.sprout.id
   location = var.zone
 
   initial_node_count = 0
@@ -173,8 +173,8 @@ resource "google_container_node_pool" "burst" {
 
 # ── Artifact Registry ──────────────────────────────────────────────────────────
 
-resource "google_artifact_registry_repository" "kiln" {
-  repository_id = "kiln"
+resource "google_artifact_registry_repository" "sprout" {
+  repository_id = "sprout"
   location      = var.region
   format        = "DOCKER"
 
@@ -184,7 +184,7 @@ resource "google_artifact_registry_repository" "kiln" {
 # ── GCS Buckets ────────────────────────────────────────────────────────────────
 
 resource "google_storage_bucket" "tools" {
-  name          = "${var.project_id}-kiln-tools"
+  name          = "${var.project_id}-sprout-tools"
   location      = var.region
   force_destroy = true
 
@@ -205,7 +205,7 @@ resource "google_storage_bucket" "tools" {
 }
 
 resource "google_storage_bucket" "pg_backups" {
-  name          = "${var.project_id}-kiln-pg-backups"
+  name          = "${var.project_id}-sprout-pg-backups"
   location      = var.region
   force_destroy = false
 
@@ -223,33 +223,33 @@ resource "google_storage_bucket" "pg_backups" {
 
 # ── IAM — Workload Identity ───────────────────────────────────────────────────
 
-resource "google_service_account" "kiln_workload" {
+resource "google_service_account" "sprout_workload" {
   account_id   = "${local.name_prefix}-workload"
-  display_name = "Kiln GKE Workload Identity"
+  display_name = "Sprout GKE Workload Identity"
 }
 
 resource "google_service_account_iam_member" "workload_identity" {
-  service_account_id = google_service_account.kiln_workload.name
+  service_account_id = google_service_account.sprout_workload.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[kiln/kiln-sa]"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[sprout/sprout-sa]"
 }
 
 resource "google_storage_bucket_iam_member" "tools_admin" {
   bucket = google_storage_bucket.tools.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.kiln_workload.email}"
+  member = "serviceAccount:${google_service_account.sprout_workload.email}"
 }
 
 resource "google_storage_bucket_iam_member" "pg_backups_writer" {
   bucket = google_storage_bucket.pg_backups.name
   role   = "roles/storage.objectCreator"
-  member = "serviceAccount:${google_service_account.kiln_workload.email}"
+  member = "serviceAccount:${google_service_account.sprout_workload.email}"
 }
 
 resource "google_project_iam_member" "workload_ar_reader" {
   project = var.project_id
   role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${google_service_account.kiln_workload.email}"
+  member  = "serviceAccount:${google_service_account.sprout_workload.email}"
 }
 
 # ── IAM — CI/CD Service Account ───────────────────────────────────────────────
@@ -303,7 +303,7 @@ resource "google_service_account_iam_member" "ci_wif" {
 
 # ── Budget Alerts ──────────────────────────────────────────────────────────────
 
-resource "google_billing_budget" "kiln" {
+resource "google_billing_budget" "sprout" {
   count = var.billing_account_id != "" ? 1 : 0
 
   billing_account = var.billing_account_id

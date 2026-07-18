@@ -8,7 +8,7 @@ parallel branches, single nodes, empty graphs, and the cycle edge case.
 
 from __future__ import annotations
 
-from kiln_chat_backend.graph_flow import _sanitize_agent_output, _topo_sort
+from sprout_chat_backend.graph_flow import _sanitize_agent_output, _topo_sort
 
 
 def _node(nid: str) -> dict:
@@ -124,26 +124,26 @@ def test_sanitize_agent_output_leaves_normal_text_alone() -> None:
 
 
 def test_is_rate_limit_error_detects_429() -> None:
-    from kiln_chat_backend.graph_flow import KilnGraphFlow
+    from sprout_chat_backend.graph_flow import SproutGraphFlow
 
-    assert KilnGraphFlow._is_rate_limit_error(Exception("Error code: 429"))
-    assert KilnGraphFlow._is_rate_limit_error(Exception("rate_limited"))
-    assert KilnGraphFlow._is_rate_limit_error(Exception("rate limit exceeded"))
-    assert KilnGraphFlow._is_rate_limit_error(Exception("service at capacity"))
-    assert not KilnGraphFlow._is_rate_limit_error(Exception("404 not found"))
-    assert not KilnGraphFlow._is_rate_limit_error(Exception("connection refused"))
+    assert SproutGraphFlow._is_rate_limit_error(Exception("Error code: 429"))
+    assert SproutGraphFlow._is_rate_limit_error(Exception("rate_limited"))
+    assert SproutGraphFlow._is_rate_limit_error(Exception("rate limit exceeded"))
+    assert SproutGraphFlow._is_rate_limit_error(Exception("service at capacity"))
+    assert not SproutGraphFlow._is_rate_limit_error(Exception("404 not found"))
+    assert not SproutGraphFlow._is_rate_limit_error(Exception("connection refused"))
 
 
 def test_run_node_with_backoff_retries_on_rate_limit(monkeypatch) -> None:
     """Rate limit errors trigger exponential backoff and retry."""
-    from kiln_chat_backend.graph_flow import KilnGraphFlow
+    from sprout_chat_backend.graph_flow import SproutGraphFlow
 
-    flow = KilnGraphFlow.__new__(KilnGraphFlow)
+    flow = SproutGraphFlow.__new__(SproutGraphFlow)
     flow._emit = lambda *a, **kw: None  # type: ignore[attr-defined]
 
     sleeps: list[float] = []
     monkeypatch.setattr(
-        "kiln_chat_backend.graph_flow.time.sleep", lambda s: sleeps.append(s)
+        "sprout_chat_backend.graph_flow.time.sleep", lambda s: sleeps.append(s)
     )
 
     call_count = 0
@@ -165,12 +165,12 @@ def test_run_node_with_backoff_retries_on_rate_limit(monkeypatch) -> None:
 
 def test_run_node_with_backoff_does_not_retry_non_rate_limit(monkeypatch) -> None:
     """Non-rate-limit errors return the error string without retrying."""
-    from kiln_chat_backend.graph_flow import KilnGraphFlow
+    from sprout_chat_backend.graph_flow import SproutGraphFlow
 
-    flow = KilnGraphFlow.__new__(KilnGraphFlow)
+    flow = SproutGraphFlow.__new__(SproutGraphFlow)
     flow._emit = lambda *a, **kw: None  # type: ignore[attr-defined]
     monkeypatch.setattr(
-        "kiln_chat_backend.graph_flow.time.sleep", lambda s: None
+        "sprout_chat_backend.graph_flow.time.sleep", lambda s: None
     )
 
     call_count = 0

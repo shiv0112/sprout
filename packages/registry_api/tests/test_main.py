@@ -1,4 +1,4 @@
-"""HTTP smoke tests for ``kiln_registry.main`` (the FastAPI app).
+"""HTTP smoke tests for ``sprout_registry.main`` (the FastAPI app).
 
 Uses ``fastapi.testclient.TestClient`` so we exercise the real route
 handlers without spinning up uvicorn. The startup event hits the database
@@ -25,16 +25,16 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[TestCli
     Re-imports the module so the module-level ``_global_registry`` and
     ``app`` are constructed against the patched env. Cleans up after.
     """
-    db_path = tmp_path / "kiln_test.db"
+    db_path = tmp_path / "sprout_test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
     # Force the legacy sync SQLite to a tmp file too (used by SQLiteRegistry).
-    monkeypatch.setenv("KILN_REGISTRY_DB", str(tmp_path / "kiln_registry_test.db"))
+    monkeypatch.setenv("SPROUT_REGISTRY_DB", str(tmp_path / "sprout_registry_test.db"))
 
     # Reload modules so the env vars take effect on construction.
-    import kiln_registry.db as db_module
-    import kiln_registry.main as main_module
-    import kiln_registry.registry as registry_module
-    import kiln_registry.sqlite_registry as sqlite_registry_module
+    import sprout_registry.db as db_module
+    import sprout_registry.main as main_module
+    import sprout_registry.registry as registry_module
+    import sprout_registry.sqlite_registry as sqlite_registry_module
 
     importlib.reload(sqlite_registry_module)
     importlib.reload(registry_module)
@@ -52,7 +52,7 @@ def test_health_returns_ok(client: TestClient) -> None:
 
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-registry-api"
+    assert body["service"] == "sprout-registry-api"
     assert isinstance(body["tool_count"], int)
     assert body["tool_count"] >= 0
 
@@ -72,7 +72,7 @@ def test_tools_endpoint_lists_loaded_tools(client: TestClient) -> None:
     assert len(tools) > 0, "registry/tools/ exists but loaded 0 tools"
 
     tool_ids = {t["id"] for t in tools if "id" in t}
-    assert "com.kiln.tools.current_date" in tool_ids, (
+    assert "com.sprout.tools.current_date" in tool_ids, (
         f"current_date missing from /tools response. Got: {sorted(tool_ids)[:5]}..."
     )
 
@@ -87,7 +87,7 @@ def test_livez_is_cheap_and_always_returns_200(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-registry-api"
+    assert body["service"] == "sprout-registry-api"
     # Liveness should NOT include dependency checks — that's readyz's job.
     assert "checks" not in body
 
@@ -102,7 +102,7 @@ def test_readyz_pings_database_and_registry(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["service"] == "kiln-registry-api"
+    assert body["service"] == "sprout-registry-api"
     assert "checks" in body
     assert body["checks"]["database"] == "ok"
     assert body["checks"]["registry"].startswith("ok")
@@ -150,7 +150,7 @@ def test_tools_search_semantic_mode_ranks_by_intent(client: TestClient) -> None:
     assert resp.status_code == 200
     hits = resp.json()
     assert hits, "semantic search must find something for a paraphrase we indexed"
-    assert hits[0]["id"] == "com.kiln.tools.hackernews_top"
+    assert hits[0]["id"] == "com.sprout.tools.hackernews_top"
     assert hits[0]["confidence"] == 1.0
     # score and confidence must be present so clients can gate on them.
     assert "score" in hits[0]
@@ -203,11 +203,11 @@ def test_tool_stats_endpoint_returns_zeros_for_unused_tool(
     client: TestClient,
 ) -> None:
     """GET /tools/{id}/stats returns zero counters for a tool never executed."""
-    resp = client.get("/tools/com.kiln.tools.current_date/stats")
+    resp = client.get("/tools/com.sprout.tools.current_date/stats")
     assert resp.status_code == 200
 
     body = resp.json()
-    assert body["tool_id"] == "com.kiln.tools.current_date"
+    assert body["tool_id"] == "com.sprout.tools.current_date"
     # Fresh test DB → counts are zero, last_status is "never".
     assert body["execution_count"] == 0
     assert body["success_count"] == 0

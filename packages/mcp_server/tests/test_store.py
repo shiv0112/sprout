@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from kiln_mcp.auth.store import InMemoryOAuthStore
+from sprout_mcp.auth.store import InMemoryOAuthStore
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def test_delete_auth_code(store: InMemoryOAuthStore) -> None:
 
 
 def test_store_and_retrieve_access_token(store: InMemoryOAuthStore) -> None:
-    data = {"token": "tok", "user_id": "u1", "client_id": "c1", "scopes": ["kiln:tools"]}
+    data = {"token": "tok", "user_id": "u1", "client_id": "c1", "scopes": ["sprout:tools"]}
     store.save_access_token("tok", data, ttl=3600)
     assert store.get_access_token("tok") == data
 

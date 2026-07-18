@@ -19,7 +19,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import type { UIMessage } from "ai"
 
-const STORAGE_KEY = "kiln.chat.history.v1"
+const STORAGE_KEY = "sprout.chat.history.v1"
 const MAX_TITLE_LEN = 60
 const MAX_CONVERSATIONS = 50
 

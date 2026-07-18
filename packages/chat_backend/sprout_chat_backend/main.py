@@ -42,7 +42,7 @@ from sprout_shared.rate_limit import get_limiter, sprout_rate_limit_exceeded_han
 from sprout_shared.request_id import SproutRequestIDMiddleware
 
 from .graph_flow import SproutGraphFlow
-from .llm_providers import ag2_config_list
+from .llm_providers import ag2_config_list, provider_chain
 from .planner import SproutPlanner
 
 logger = logging.getLogger(__name__)
@@ -382,56 +382,51 @@ def _collect_missing_envs(graph: dict, provided: dict[str, str]) -> list[dict]:
     return missing
 
 
-def _research_api(tool_description: str, api_key: str) -> str:
+def _research_api(tool_description: str, api_key: str = "") -> str:
     """
-    Ask Mistral to recommend the best free/open API for a given tool description.
-    Returns a short constraints string that is injected into the synthesis request.
-    Falls back to an empty string if the call fails.
+    Ask the primary LLM (Groq, with NVIDIA NIM / Mistral fallback) to recommend
+    the best free/open API for a given tool description. Returns a short
+    constraints string injected into the synthesis request. Non-critical:
+    walks the provider chain and returns "" if every provider fails.
     """
-    try:
-        from mistralai.client import Mistral
+    from openai import OpenAI
 
-        client = Mistral(api_key=api_key)
-        resp = client.chat.complete(
-            model="mistral-small-latest",
-            # Mistral SDK accepts dict literals at runtime; they avoid the
-            # confusing multi-namespace message types in mistralai.
-            messages=[  # type: ignore[arg-type]
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an API research assistant. "
-                        "Given a tool description, recommend the single best free/open HTTP API "
-                        "that requires NO API key. Reply in 3-5 lines only:\n"
-                        "1. API name and base URL\n"
-                        "2. Exact endpoint and query parameters to use\n"
-                        "3. Response format (JSON/XML) and the key fields to extract\n"
-                        "4. Any required HTTP headers (e.g. User-Agent)\n"
-                        "If no completely free option exists, name the cheapest option and its "
-                        "required env var name. Be concrete and brief — no prose."
-                    ),
-                },
-                {"role": "user", "content": f"Tool to implement: {tool_description}"},
-            ],
-        )
-        # Mistral SDK content can be str | list[ContentChunk] | Unset | None.
-        # Coerce to a single string we can safely .strip().
-        raw = resp.choices[0].message.content
-        if raw is None:
-            return ""
-        if isinstance(raw, str):
-            return raw.strip()
-        if isinstance(raw, list):
-            parts: list[str] = []
-            for chunk in raw:
-                text = getattr(chunk, "text", None)
-                if isinstance(text, str):
-                    parts.append(text)
-            return "".join(parts).strip()
-        return str(raw).strip()
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an API research assistant. "
+                "Given a tool description, recommend the single best free/open HTTP API "
+                "that requires NO API key. Reply in 3-5 lines only:\n"
+                "1. API name and base URL\n"
+                "2. Exact endpoint and query parameters to use\n"
+                "3. Response format (JSON/XML) and the key fields to extract\n"
+                "4. Any required HTTP headers (e.g. User-Agent)\n"
+                "If no completely free option exists, name the cheapest option and its "
+                "required env var name. Be concrete and brief — no prose."
+            ),
+        },
+        {"role": "user", "content": f"Tool to implement: {tool_description}"},
+    ]
+
+    try:
+        providers = provider_chain(mistral_api_key=api_key)
     except Exception as exc:
-        logger.error(f"Could not research API: {exc}")
+        logger.error(f"Could not research API (no LLM provider configured): {exc}")
         return ""
+
+    for p in providers:
+        try:
+            client = OpenAI(api_key=p["api_key"], base_url=p["base_url"], timeout=60.0)
+            resp = client.chat.completions.create(
+                model=p["model"], messages=messages, max_tokens=400,
+            )
+            content = resp.choices[0].message.content
+            return (content or "").strip()
+        except Exception as exc:
+            logger.warning("API research via %s failed (%s); trying next provider", p["name"], exc)
+            continue
+    return ""
 
 
 def _route_intent_via_registry(intent: str, min_confidence: float) -> dict | None:
@@ -699,9 +694,16 @@ async def sprout_start(
     If "needs_config", collect the missing keys and call POST /sprout/execute/{run_id}.
     If "started", connect to GET /sprout/stream/{run_id} immediately.
     """
+    # Mistral is now only a fallback (Groq is primary). Pass its key into the
+    # chain if present, but require just ONE provider to be configured.
     api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
-    if not api_key:
-        raise HTTPException(status_code=500, detail="MISTRAL_API_KEY not set on server")
+    try:
+        provider_chain(mistral_api_key=api_key)
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="No LLM provider configured (set GROQ_API_KEY, NVIDIA_API_KEY, or MISTRAL_API_KEY).",
+        ) from None
 
     user_request = body.request.strip()
     if not user_request:

@@ -29,7 +29,7 @@ def _default_callback_url() -> str:
 
 
 class Settings(BaseSettings):
-    opencode_model: str = "mistral/codestral-latest"
+    opencode_model: str = "groq/llama-3.3-70b-versatile"
 
     opencode_timeout: int = 600
 

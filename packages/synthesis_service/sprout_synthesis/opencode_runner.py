@@ -14,6 +14,7 @@ import contextlib
 import json
 import logging
 import os
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
@@ -67,8 +68,32 @@ async def run_opencode(
         "--", prompt,
     ]
 
-    # Suppress TUI rendering in subprocess — no TTY, no color
-    env = {**os.environ, "TERM": "dumb", "NO_COLOR": "1"}
+    # Isolate OpenCode's per-run state. All runs otherwise share one global
+    # OpenCode data dir (~/.local/share/opencode), whose SQLite DB throws
+    # "database is locked" under concurrent runs — or when a previously
+    # force-killed run leaves a stale lock. Give each run its own HOME (with the
+    # shared config copied in) so runs never collide and a killed run's lock is
+    # confined to its own throwaway directory.
+    oc_home = workdir / ".opencode-home"
+    oc_home.mkdir(parents=True, exist_ok=True)
+    _cfg_root = os.environ.get("XDG_CONFIG_HOME")
+    _src_cfg = (Path(_cfg_root) if _cfg_root else Path.home() / ".config") / "opencode" / "opencode.json"
+    if _src_cfg.exists():
+        _dst_cfg = oc_home / ".config" / "opencode"
+        _dst_cfg.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(_src_cfg, _dst_cfg / "opencode.json")
+
+    # Suppress TUI rendering in subprocess — no TTY, no color.
+    env = {
+        **os.environ,
+        "TERM": "dumb",
+        "NO_COLOR": "1",
+        "HOME": str(oc_home),
+        "XDG_CONFIG_HOME": str(oc_home / ".config"),
+        "XDG_DATA_HOME": str(oc_home / ".local" / "share"),
+        "XDG_STATE_HOME": str(oc_home / ".local" / "state"),
+        "XDG_CACHE_HOME": str(oc_home / ".cache"),
+    }
 
     logger.info("Spawning OpenCode CLI in %s", workdir)
     logger.info("Command: opencode run <prompt> --format json --quiet --model %s", settings.opencode_model)

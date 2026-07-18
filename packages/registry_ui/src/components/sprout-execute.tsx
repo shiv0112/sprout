@@ -283,9 +283,9 @@ export function SproutExecute() {
             {phase === "idle" ? (
               <div className="flex flex-col items-center justify-center h-full min-h-[60vh] px-6 py-12">
                 <div className="relative mb-8">
-                  <span className="absolute -inset-4 animate-pulse rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 blur-2xl" />
-                  <div className="relative flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/30 shadow-lg shadow-primary/15">
-                    <Sprout className="size-10 text-primary" />
+                  <span className="absolute -inset-4 animate-pulse rounded-3xl bg-gradient-to-br from-sprout/30 to-sprout/10 blur-2xl" />
+                  <div className="relative flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sprout/20 to-sprout/5 ring-1 ring-sprout/30 shadow-lg shadow-sprout/15">
+                    <Sprout className="size-10 text-sprout" />
                   </div>
                 </div>
                 <h2 className="text-3xl font-bold tracking-tight mb-3">Sprout Execute</h2>

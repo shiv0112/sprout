@@ -56,8 +56,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <header className="sticky top-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-2xl backdrop-saturate-150">
               <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center px-6">
                 <Link href="/" className="group mr-8 flex items-center gap-2.5">
-                  <span className="relative flex size-9 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 transition-all duration-300 group-hover:border-primary/50 group-hover:bg-primary/15">
-                    <Sprout className="size-4 text-primary transition-colors duration-300 group-hover:text-primary" />
+                  <span className="relative flex size-9 items-center justify-center rounded-xl border border-sprout/30 bg-sprout/10 transition-all duration-300 group-hover:border-sprout/50 group-hover:bg-sprout/15">
+                    <Sprout className="size-4 text-sprout transition-colors duration-300" />
                   </span>
                   <span className="flex flex-col leading-none">
                     <span className="text-[15px] font-semibold tracking-tight text-foreground/95">
@@ -101,7 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <footer className="border-t border-border/60">
               <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-6 py-5">
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <Sprout className="size-3 text-primary/65" />
+                  <Sprout className="size-3 text-sprout/65" />
                   Sprout — Self evolving tool registry
                 </div>
                 <div className="text-[11px] text-muted-foreground/80">

@@ -35,6 +35,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  /* brand logo leaf — always a green shoot, independent of the primary hue */
+  --color-sprout: var(--sprout);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -76,10 +78,18 @@
   --input: hsl(40 36% 79%);
   --ring: hsl(4 59% 44%);
   --radius: 0.75rem;
+  /* sprout leaf — emerald, deepened for legibility on paper */
+  --sprout: hsl(160 78% 30%);
   /* ambient glow — madder + marigold on paper */
   --glow-1: hsl(4 59% 44% / 0.10);
   --glow-2: hsl(41 72% 46% / 0.14);
   --glow-3: hsl(4 55% 40% / 0.07);
+  /* shadows — soft + warm on paper (light mode reads far lighter) */
+  --shadow-panel: 0 14px 34px -14px hsl(30 25% 20% / 0.12);
+  --shadow-panel-lg: 0 22px 50px -18px hsl(30 25% 20% / 0.14);
+  --shadow-brand: 0 12px 26px -14px hsl(4 59% 44% / 0.26);
+  --shadow-brand-hover: 0 16px 32px -14px hsl(4 59% 44% / 0.32);
+  --shadow-brand-sm: 0 8px 18px -10px hsl(4 59% 44% / 0.18);
 }
 
 .dark {
@@ -103,10 +113,18 @@
   --border: hsl(223 24% 21%);
   --input: hsl(223 24% 21%);
   --ring: hsl(226 61% 60%);
+  /* sprout leaf — bright emerald on the dark ground */
+  --sprout: hsl(158 76% 52%);
   /* ambient glow — woad + marigold on the indigo vat */
   --glow-1: hsl(226 61% 60% / 0.14);
   --glow-2: hsl(41 72% 55% / 0.10);
   --glow-3: hsl(226 55% 52% / 0.09);
+  /* shadows — deep navy on the dark ground */
+  --shadow-panel: 0 16px 56px hsl(223 80% 4% / 0.4);
+  --shadow-panel-lg: 0 24px 72px hsl(223 80% 4% / 0.45);
+  --shadow-brand: 0 18px 40px -12px hsl(226 61% 60% / 0.55);
+  --shadow-brand-hover: 0 24px 48px -10px hsl(226 61% 60% / 0.6);
+  --shadow-brand-sm: 0 10px 24px hsl(226 61% 60% / 0.16);
 }
 
 @layer base {
@@ -122,11 +140,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  /* Every clickable control shows the hand cursor (native <button> defaults to
+     an arrow). Disabled controls keep the default cursor. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 @layer components {
   .hero-surface {
-    @apply relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 px-7 py-8 shadow-[0_24px_72px_hsl(223_80%_4%_/_0.45)] backdrop-blur-md;
+    @apply relative overflow-hidden rounded-2xl border border-border/70 bg-card/70 px-7 py-8 backdrop-blur-md;
+    box-shadow: var(--shadow-panel-lg);
   }
 
   .hero-surface::before {
@@ -138,7 +163,8 @@
   }
 
   .section-surface {
-    @apply rounded-2xl border border-border/70 bg-card/65 shadow-[0_16px_56px_hsl(223_80%_4%_/_0.4)] backdrop-blur-md;
+    @apply rounded-2xl border border-border/70 bg-card/65 backdrop-blur-md;
+    box-shadow: var(--shadow-panel);
   }
 
   .eyebrow-label {

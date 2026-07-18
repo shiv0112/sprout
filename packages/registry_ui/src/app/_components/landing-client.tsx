@@ -206,10 +206,10 @@ function Hero({ toolCount }: { toolCount: number }) {
               <Link href="/chat">
                 <Button
                   size="lg"
-                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_40px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95 hover:shadow-[0_24px_48px_-10px_hsl(226_61%_60%_/_0.6)]"
+                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[var(--shadow-brand)] transition-all hover:bg-primary/95 hover:border-white/35 hover:shadow-[var(--shadow-brand-hover)]"
                 >
                   Open the console
-                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight className="size-4" />
                 </Button>
               </Link>
             </Magnetic>
@@ -219,10 +219,10 @@ function Hero({ toolCount }: { toolCount: number }) {
               <SignUpButton mode="modal" forceRedirectUrl="/chat" signInForceRedirectUrl="/chat">
                 <Button
                   size="lg"
-                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_40px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95 hover:shadow-[0_24px_48px_-10px_hsl(226_61%_60%_/_0.6)]"
+                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[var(--shadow-brand)] transition-all hover:bg-primary/95 hover:border-white/35 hover:shadow-[var(--shadow-brand-hover)]"
                 >
                   Get started — free
-                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight className="size-4" />
                 </Button>
               </SignUpButton>
             </Magnetic>
@@ -232,7 +232,7 @@ function Hero({ toolCount }: { toolCount: number }) {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 gap-2 rounded-2xl border-white/10 bg-white/[0.025] px-5 text-[14px] font-medium text-foreground/85 backdrop-blur transition-all hover:border-white/20 hover:bg-white/[0.05]"
+                className="h-12 gap-2 rounded-2xl border-white/10 bg-white/[0.025] px-5 text-[14px] font-medium text-foreground/85 backdrop-blur transition-colors hover:border-white/40 hover:bg-white/[0.05]"
               >
                 Browse the registry
                 <ArrowUpRight className="size-4" />
@@ -272,9 +272,9 @@ function Hero({ toolCount }: { toolCount: number }) {
           </motion.svg>
           {/* Core */}
           <div className="absolute inset-0 m-auto flex size-12 items-center justify-center">
-            <span className="absolute -inset-3 animate-pulse rounded-2xl bg-primary/25 blur-2xl" />
-            <div className="relative flex size-12 items-center justify-center rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/30 to-primary/5 backdrop-blur">
-              <Sprout className="size-5 text-primary" />
+            <span className="absolute -inset-3 animate-pulse rounded-2xl bg-sprout/25 blur-2xl" />
+            <div className="relative flex size-12 items-center justify-center rounded-2xl border border-sprout/30 bg-gradient-to-br from-sprout/30 to-sprout/5 backdrop-blur">
+              <Sprout className="size-5 text-sprout" />
             </div>
           </div>
         </div>
@@ -491,7 +491,6 @@ function PipelineStep({
           ),
           scale: useTransform(fill, [0, 1], [1, 1.04]),
         }}
-        whileHover={{ rotate: [0, -3, 3, 0], transition: { duration: 0.6 } }}
         className="relative flex size-[68px] items-center justify-center rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.015] backdrop-blur"
       >
         <motion.span
@@ -547,7 +546,7 @@ function Showcase({ tools }: { tools: Tool[] }) {
         </div>
         <Link href="/tools" className="group inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground/70 transition-colors hover:text-foreground">
           Explore all {tools.length} tools
-          <ArrowUpRight className="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          <ArrowUpRight className="size-3.5" />
         </Link>
       </div>
 
@@ -615,7 +614,7 @@ function ShowcaseCard({ tool, index }: { tool: Tool; index: number }) {
                 </div>
               </div>
             </div>
-            <ArrowUpRight className="size-4 shrink-0 text-muted-foreground/40 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
+            <ArrowUpRight className="size-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
           </div>
           <p className="relative mt-4 line-clamp-2 text-[12.5px] leading-relaxed text-muted-foreground/85" style={{ transform: "translateZ(12px)" }}>
             {tool.description}
@@ -641,7 +640,6 @@ function Trust() {
                 whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ type: "spring", stiffness: 110, damping: 14, delay: i * 0.07 }}
-                whileHover={{ y: -2 }}
                 className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-[12.5px] font-medium text-foreground/85 transition-colors hover:border-primary/25 hover:bg-white/[0.045]"
               >
                 <t.icon className="size-3.5 text-primary" />
@@ -693,7 +691,7 @@ function FinalCta() {
               <Link href="/chat">
                 <Button
                   size="lg"
-                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_44px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95"
+                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[var(--shadow-brand)] transition-colors hover:bg-primary/95 hover:border-white/35"
                 >
                   Open the console
                   <ArrowRight className="size-4" />
@@ -706,7 +704,7 @@ function FinalCta() {
               <SignUpButton mode="modal" forceRedirectUrl="/chat" signInForceRedirectUrl="/chat">
                 <Button
                   size="lg"
-                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_44px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95"
+                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[var(--shadow-brand)] transition-colors hover:bg-primary/95 hover:border-white/35"
                 >
                   Get started — free
                   <ArrowRight className="size-4" />
@@ -719,7 +717,7 @@ function FinalCta() {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 gap-2 rounded-2xl border-white/10 bg-white/[0.025] px-6 text-[14px] font-medium text-foreground/85 backdrop-blur transition-all hover:border-white/20 hover:bg-white/[0.05]"
+                className="h-12 gap-2 rounded-2xl border-white/10 bg-white/[0.025] px-6 text-[14px] font-medium text-foreground/85 backdrop-blur transition-colors hover:border-white/40 hover:bg-white/[0.05]"
               >
                 Browse the registry
               </Button>
@@ -753,37 +751,11 @@ function SectionHeadline({ children }: { children: React.ReactNode }) {
 }
 
 /* Magnetic wrapper: gently pulls children toward the cursor, springs back. */
-function Magnetic({ children, strength = 0.25 }: { children: React.ReactNode; strength?: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const sx = useSpring(x, { stiffness: 240, damping: 18, mass: 0.4 })
-  const sy = useSpring(y, { stiffness: 240, damping: 18, mass: 0.4 })
-
-  function handleMove(e: React.PointerEvent<HTMLDivElement>) {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    x.set((e.clientX - (rect.left + rect.width / 2)) * strength)
-    y.set((e.clientY - (rect.top + rect.height / 2)) * strength)
-  }
-
-  function handleLeave() {
-    x.set(0)
-    y.set(0)
-  }
-
-  return (
-    <motion.div
-      ref={ref}
-      onPointerMove={handleMove}
-      onPointerLeave={handleLeave}
-      style={{ x: sx, y: sy }}
-      className="inline-block"
-    >
-      {children}
-    </motion.div>
-  )
+/* Static wrapper. Previously followed the cursor magnetically, which made the
+ * buttons drift "in the air" on hover; now it just holds them in place. Hover
+ * feedback is a border highlight on the buttons themselves. */
+function Magnetic({ children }: { children: React.ReactNode; strength?: number }) {
+  return <span className="inline-block">{children}</span>
 }
 
 /* Rotating word with blur+slide enter/exit.

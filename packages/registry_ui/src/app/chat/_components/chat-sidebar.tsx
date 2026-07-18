@@ -90,7 +90,7 @@ export function ChatSidebar({
       <div className="shrink-0 space-y-3 border-b border-white/5 px-4 py-4">
         <Button
           onClick={onNew}
-          className="h-10 w-full justify-start gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[0_10px_24px_hsl(226_61%_60%_/_0.16)] transition-all hover:-translate-y-px hover:bg-primary/92 hover:shadow-[0_12px_28px_hsl(226_61%_60%_/_0.18)]"
+          className="h-10 w-full justify-start gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-brand-sm)] transition-all hover:bg-primary/92 hover:border-white/25 hover:shadow-[var(--shadow-brand)]"
           size="sm"
         >
           <Plus className="size-4" />
@@ -178,7 +178,7 @@ export function ChatSidebar({
                                 className={`flex shrink-0 items-center gap-1 transition-all ${
                                   isActive
                                     ? "translate-x-0 opacity-100"
-                                    : "translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
+                                    : "opacity-0 group-hover:opacity-100"
                                 }`}
                               >
                                 <button

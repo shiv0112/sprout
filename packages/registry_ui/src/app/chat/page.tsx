@@ -503,9 +503,9 @@ export default function ChatPage() {
       <Show when="signed-out">
         <div className="hero-surface flex min-h-[32rem] flex-col items-center justify-center gap-5 text-center">
           <div className="relative">
-            <span className="absolute -inset-4 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 blur-xl" />
-            <div className="relative flex size-16 items-center justify-center rounded-2xl border border-primary/30 bg-primary/15">
-              <Sprout className="size-8 text-primary" />
+            <span className="absolute -inset-4 rounded-2xl bg-gradient-to-br from-sprout/30 to-sprout/10 blur-xl" />
+            <div className="relative flex size-16 items-center justify-center rounded-2xl border border-sprout/30 bg-sprout/15">
+              <Sprout className="size-8 text-sprout" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -1081,9 +1081,9 @@ function SproutChat() {
               <ConversationEmptyState
                 icon={
                   <div className="relative">
-                    <span className="absolute -inset-4 animate-pulse rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 blur-2xl" />
-                    <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/30">
-                      <Sprout className="size-8 text-primary" />
+                    <span className="absolute -inset-4 animate-pulse rounded-3xl bg-gradient-to-br from-sprout/30 to-sprout/10 blur-2xl" />
+                    <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sprout/20 to-sprout/5 ring-1 ring-sprout/30">
+                      <Sprout className="size-8 text-sprout" />
                     </div>
                   </div>
                 }
@@ -1182,7 +1182,7 @@ function SproutChat() {
               </PromptInputBody>
               <PromptInputFooter>
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-                  <Sprout className="size-3 text-primary/70" />
+                  <Sprout className="size-3 text-sprout/70" />
                   Powered by Sprout
                 </div>
                 <PromptInputSubmit disabled={isLoading}>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Plus, Pencil, Trash2, Search } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -14,6 +14,9 @@ interface ChatSidebarProps {
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
+  /** Mobile drawer state — ignored at md+ where the sidebar is always shown. */
+  open?: boolean
+  onClose?: () => void
 }
 
 function relativeTime(ts: number): string {
@@ -47,6 +50,8 @@ export function ChatSidebar({
   onSelect,
   onDelete,
   onRename,
+  open = false,
+  onClose,
 }: ChatSidebarProps) {
   const [query, setQuery] = useState("")
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -85,9 +90,23 @@ export function ChatSidebar({
   }, [filtered, query])
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border/60 bg-[linear-gradient(180deg,#171a28_0%,#121520_18%,#10131d_100%)]">
+    <aside
+      className={`absolute inset-y-0 left-0 z-30 flex h-full w-72 shrink-0 flex-col border-r border-border/60 bg-card shadow-xl transition-transform duration-300 md:relative md:z-auto md:translate-x-0 md:bg-card/50 md:shadow-none ${
+        open ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
       {/* Header */}
-      <div className="shrink-0 space-y-3 border-b border-white/5 px-4 py-4">
+      <div className="shrink-0 space-y-3 border-b border-border/50 px-4 py-4">
+        <div className="flex justify-end md:hidden">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close chat list"
+            className="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
         <Button
           onClick={onNew}
           className="h-10 w-full justify-start gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-brand-sm)] transition-all hover:bg-primary/92 hover:border-white/25 hover:shadow-[var(--shadow-brand)]"
@@ -104,7 +123,7 @@ export function ChatSidebar({
             placeholder="Search chats…"
             autoComplete="off"
             name="sprout-chat-search"
-            className="h-10 w-full rounded-xl border border-white/8 bg-white/[0.02] py-1.5 pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-all focus:border-primary/20 focus:bg-white/[0.04] focus:ring-2 focus:ring-primary/12"
+            className="h-10 w-full rounded-xl border border-border/60 bg-muted/40 py-1.5 pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-all focus:border-primary/40 focus:bg-muted/60 focus:ring-2 focus:ring-primary/15"
           />
         </div>
       </div>
@@ -133,8 +152,8 @@ export function ChatSidebar({
                             <div
                               className={`group relative flex items-start gap-2 rounded-xl px-2.5 py-2 text-xs transition-all ${
                                 isActive
-                                  ? "bg-white/[0.055] text-foreground shadow-[inset_0_1px_0_hsl(0_0%_100%_/_0.03)]"
-                                  : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                                  ? "bg-muted/70 text-foreground shadow-sm"
+                                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                               }`}
                             >
                               <button
@@ -188,7 +207,7 @@ export function ChatSidebar({
                                     setRenamingId(conv.id)
                                     setRenameValue(conv.title)
                                   }}
-                                  className="flex size-6 items-center justify-center rounded-full bg-white/[0.03] outline-none transition-all hover:bg-white/[0.07]"
+                                  className="flex size-6 items-center justify-center rounded-full bg-muted/50 outline-none transition-all hover:bg-muted/80"
                                 >
                                   <Pencil className="size-3 text-muted-foreground/72" />
                                 </button>
@@ -196,7 +215,7 @@ export function ChatSidebar({
                                   type="button"
                                   aria-label={`Delete ${conv.title}`}
                                   onClick={() => onDelete(conv.id)}
-                                  className="flex size-6 items-center justify-center rounded-full bg-white/[0.03] outline-none transition-all hover:bg-destructive/12"
+                                  className="flex size-6 items-center justify-center rounded-full bg-muted/50 outline-none transition-all hover:bg-destructive/15"
                                 >
                                   <Trash2 className="size-3 text-destructive/72" />
                                 </button>
@@ -215,7 +234,7 @@ export function ChatSidebar({
       </ScrollArea>
 
       {/* Footer count */}
-      <div className="shrink-0 border-t border-white/5 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/22">
+      <div className="shrink-0 border-t border-border/50 px-4 py-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/40">
         {conversations.length} {conversations.length === 1 ? "chat" : "chats"}
       </div>
     </aside>

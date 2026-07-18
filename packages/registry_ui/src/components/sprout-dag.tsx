@@ -40,10 +40,10 @@ interface SproutDagProps {
 }
 
 const STATUS_ICON: Record<NodeStatus, React.ReactNode> = {
-  pending: <Circle className="size-4 text-muted-foreground/40" />,
-  running: <Loader2 className="size-4 animate-spin text-primary" />,
-  complete: <CheckCircle2 className="size-4 text-emerald-400" />,
-  error: <AlertCircle className="size-4 text-red-400" />,
+  pending: <Circle className="size-3 text-muted-foreground/40" />,
+  running: <Loader2 className="size-3 animate-spin text-primary" />,
+  complete: <CheckCircle2 className="size-3 text-emerald-400" />,
+  error: <AlertCircle className="size-3 text-red-400" />,
 }
 
 const STATUS_RING: Record<NodeStatus, string> = {

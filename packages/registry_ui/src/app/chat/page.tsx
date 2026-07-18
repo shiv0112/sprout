@@ -12,6 +12,7 @@ import {
   Sprout,
   Key,
   Loader2,
+  Menu,
   Search,
   Send,
   Sparkles,
@@ -542,6 +543,7 @@ function SproutChat() {
 
   const [messages, setMessages] = useState<UIMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [streamState, setStreamState] = useState<ExecutionState | null>(null)
   const [configPrompt, setConfigPrompt] = useState<{
     runId: string
@@ -1065,16 +1067,42 @@ function SproutChat() {
   )
 
   return (
-    <div className="section-surface flex h-[calc(100vh-12.5rem)] min-h-[38rem] overflow-hidden p-0">
+    <div className="section-surface relative flex h-[calc(100vh-12.5rem)] min-h-[38rem] overflow-hidden p-0">
+      {sidebarOpen && (
+        <div
+          className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
       <ChatSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         conversations={conversations}
         activeId={activeId}
-        onNew={handleNewChat}
-        onSelect={handleSelectChat}
+        onNew={() => {
+          handleNewChat()
+          setSidebarOpen(false)
+        }}
+        onSelect={(id) => {
+          handleSelectChat(id)
+          setSidebarOpen(false)
+        }}
         onDelete={deleteConversation}
         onRename={renameConversation}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open chat list"
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Menu className="size-4" />
+          </button>
+          <span className="text-sm font-medium text-foreground/80">Chats</span>
+        </div>
         <Conversation className="flex-1">
           <ConversationContent className="mx-auto w-full max-w-3xl space-y-6 px-6 py-6">
             {!hasMessages ? (

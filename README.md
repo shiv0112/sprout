@@ -2,31 +2,41 @@
 
 **A self-evolving tool registry for AI agents.**
 
-Sprout is a platform where AI agents discover, execute, and — when a tool doesn't exist yet — synthesize new tools on the fly. Ask for something in natural language, and Sprout figures out how to do it. No restarts, no hand-wired integrations.
+Sprout is a platform where AI agents discover, execute, and — when a tool doesn't
+exist yet — **synthesize new tools on the fly**. Ask for something in natural
+language, and Sprout figures out how to do it. No restarts, no hand-wired
+integrations.
+
+### ▶ Live: **https://sprout-tool-registry.vercel.app/**
 
 ---
 
 ## The Problem
 
-Every AI agent framework (LangChain, AG2, CrewAI, Anthropic's MCP) requires you to pre-define tools before an agent can use them. Need a new tool? Stop the agent, write the code, register it, restart. This creates a hard ceiling: agents are only as capable as the tools you've already built.
+Every AI agent framework (LangChain, AG2, CrewAI, Anthropic's MCP) requires you
+to pre-define tools before an agent can use them. Need a new tool? Stop the
+agent, write the code, register it, restart. This creates a hard ceiling: agents
+are only as capable as the tools you've already built.
 
 ## The Solution
 
 Sprout removes the ceiling:
 
-1. **You ask** something in natural language via the Sprout chat UI, any MCP client (Claude Desktop, ChatGPT, Cursor, VS Code Copilot), or the registry HTTP API.
+1. **You ask** something in natural language via the chat UI, any MCP client
+   (Claude Desktop, Cursor, VS Code Copilot), or the registry HTTP API.
 2. **ARIA** (the planning agent) decomposes your request into a directed task graph.
-3. If a required tool **doesn't exist**, ARIA triggers **Vibe** (OpenCode/NIM-backed coding agent) to synthesize it — spec + implementation + tests — in seconds.
+3. If a required tool **doesn't exist**, ARIA triggers **Vibe** (a coding agent) to
+   synthesize it — spec + implementation + tests — in seconds.
 4. The new tool is **hot-loaded** into the registry. No restart.
-5. ARIA continues execution with the freshly created tool.
-6. MCP clients see the new tool appear automatically through polling-driven refresh.
+5. ARIA continues execution with the freshly created tool, and MCP clients see the
+   new tool appear automatically.
 
 ```
 "What's the weather in Tokyo and convert it to Fahrenheit?"
 
   ARIA: I need weather_lookup (exists) and temp_converter (missing)
     -> Vibe synthesizes temp_converter in ~15 seconds
-    -> Tool registered, tested, loaded
+    -> Tool registered, tested, hot-loaded
     -> ARIA executes the full plan
     -> Answer delivered
 ```
@@ -36,78 +46,83 @@ Sprout removes the ceiling:
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                            Clients                               |
-|                                                                  |
-|   Browser (Next.js UI)     Claude Desktop / ChatGPT / Cursor     |
-|         |                              |                         |
-|         | Clerk JWT                    | OAuth 2.1 + PKCE        |
-|         v                              v                         |
-|   +-------------+                +--------------+                |
-|   | chat_backend|                |  mcp_server  |                |
-|   |   :8765     |                |    :8768     |                |
-|   |  Planning   |                |  MCP bridge  |                |
-|   |  (Mistral)  |                |  + Auth AS   |                |
-|   +------+------+                +-------+------+                |
-|          |                               |                       |
-|          |  tool execution (HTTP)        |                       |
-|          v                               v                       |
-|   +--------------------------------------------+                 |
-|   |            registry_api  :8766             |                 |
-|   |   Tool CRUD, search, execute, auth         |                 |
-|   +---------+--------------------------+-------+                 |
-|             |                          |                         |
-|             v                          v                         |
-|   +------------------+      +------------------+                 |
-|   |  tool_executor   |      | synthesis_service|                 |
-|   |      :8767       |      |      :8002       |                 |
-|   |  Sandboxed run   |      |  OpenCode + NIM  |                 |
-|   +------------------+      +--------+---------+                 |
-|                                      | webhook on completion     |
-|                                      v                           |
-|                              registry/tools/ on disk             |
-|                                                                  |
-|   PostgreSQL :5432 . Redis :6379 (cache, rate-limit)             |
-+------------------------------------------------------------------+
+                              Clients
+   Browser (Next.js UI)              MCP clients (Claude Desktop, Cursor, …)
+        │ Clerk JWT                        │ OAuth 2.1 + PKCE
+        ▼                                  ▼
+   ┌──────────────┐                 ┌──────────────┐
+   │ chat_backend │                 │  mcp_server  │
+   │   planner    │                 │  MCP bridge  │
+   └──────┬───────┘                 └──────┬───────┘
+          │  tool execution (HTTP)         │
+          ▼                                ▼
+   ┌───────────────────────────────────────────────┐
+   │                 registry_api                    │
+   │      tool CRUD · search · execute · auth        │
+   └───────┬───────────────────────────────┬─────────┘
+           ▼                                ▼
+   ┌────────────────┐             ┌────────────────────┐
+   │  tool_executor │             │  synthesis (Vibe)  │
+   │  sandboxed run │             │   OpenCode + LLM   │
+   └────────────────┘             └─────────┬──────────┘
+                                            │ webhook on completion
+                                            ▼
+                                   registry/tools/ on disk
+
+           PostgreSQL · Redis   (metadata, cache, rate limiting)
 ```
 
----
+### How it works
 
-## Services
+- **Planning → DAG.** `chat_backend` turns your request into a task graph, then
+  runs it as a topological DAG of AG2 (PyAutoGen) agents, streaming progress back
+  over SSE.
+- **HTTP tool proxy.** Agents never import tools directly — they call HTTP stubs
+  that hit `registry_api`. This is what makes hot-reload, distributed execution,
+  and per-tool access control possible.
+- **Spec-driven tools.** Every tool is a framework-agnostic `spec.yaml` + `impl.py`.
+  Compilers translate one spec into AG2, Mistral, LangChain, or Pydantic AI tool
+  definitions on demand — hand-written and synthesized tools work everywhere.
+- **On-the-fly synthesis.** When a tool is missing, `synthesis_service` runs the
+  Vibe coding agent (OpenCode) to write the spec, implementation, and tests, then
+  webhooks the result back to the registry, which hot-loads it.
 
-| Service | Port | Language | Responsibility |
-|---------|------|----------|----------------|
-| `registry_api` | 8766 | Python | Tool registry: CRUD, search, execution, Clerk auth |
-| `chat_backend` | 8765 | Python | Mistral planner → task DAG → AG2 multi-agent executor → SSE stream |
-| `synthesis_service` | 8002 | Python | Spawns OpenCode + NIM to generate `spec.yaml` + `impl.py`, calls back to registry |
-| `tool_executor` | 8767 | Python | Stub for sandboxed tool execution (gVisor migration planned) |
-| `mcp_server` | 8768 | Python | MCP JSON-RPC bridge + OAuth 2.1/PKCE Authorization Server (Clerk for identity) |
-| `registry_ui` | 3001 | TypeScript | Next.js 16 + React 19 frontend (chat, catalog, publish, settings) |
-| `postgres` | 5432 | — | Tool metadata, user profiles, usage stats |
-| `redis` | 6379 | — | Cache, per-user rate limiting, session state |
+### Services
+
+| Service | Port | Responsibility |
+|---------|------|----------------|
+| `registry_api` | 8766 | Tool registry: CRUD, search, execution, auth |
+| `chat_backend` | 8765 | Planner → task DAG → AG2 multi-agent executor → SSE stream |
+| `synthesis_service` | 8002 | Vibe: OpenCode generates `spec.yaml` + `impl.py`, calls back to registry |
+| `mcp_server` | 8768 | MCP bridge + OAuth 2.1 / PKCE authorization server |
+| `tool_executor` | 8767 | Sandboxed tool execution |
+| `registry_ui` | 3001 | Next.js 16 + React 19 frontend (chat, catalog, publish, settings) |
+| `postgres` / `redis` | — | Tool metadata, cache, per-user rate limiting |
+
+**Planning LLM chain:** Groq (`llama-3.3-70b-versatile`) → NVIDIA NIM → Mistral,
+tried in order with automatic fallback. Tool synthesis uses OpenCode with a coding
+model (Mistral Codestral by default).
 
 ---
 
 ## Tool Format
 
-Every tool is a pair of files on disk: `registry/tools/{id}/{version}/spec.yaml` + `{entrypoint}.py`.
+Every tool is a pair of files on disk:
+`registry/tools/{id}/{version}/spec.yaml` + `{entrypoint}.py`.
 
 **`spec.yaml`** — what the tool does:
 ```yaml
 sprout_version: "1.0"
-
 tool:
   id: com.sprout.tools.fetch_url
   name: fetch_url
   version: "1.0.0"
   description: "Fetch any public URL and return plain-text content with HTML stripped."
   author: aria
-
 interface:
   inputs:
     - name: url
       type: string
-      description: "Full URL to fetch"
       required: true
     - name: max_chars
       type: integer
@@ -118,20 +133,12 @@ interface:
       type: string
     - name: content
       type: string
-
 implementation:
   runtime: python3.10
   entrypoint: fetch_url.py
   dependencies:
     - requests>=2.28.0
     - beautifulsoup4>=4.12.0
-
-testing:
-  fixtures:
-    - input:
-        url: "https://en.wikipedia.org/wiki/Singapore"
-      expected_output_contains: [title, content]
-
 metadata:
   tags: [web, scraping]
   category: research
@@ -147,76 +154,67 @@ def fetch_url(**kwargs) -> dict:
     return {"title": "...", "content": "...", "success": True}
 ```
 
-The format is framework-agnostic. Sprout's `compiler/` module translates specs to AG2, Mistral, LangChain, or Pydantic AI tool definitions on the fly, so any tool — hand-written or synthesized — works with any supported framework without modification.
+The format is framework-agnostic — Sprout's `compiler/` module translates specs to
+AG2, Mistral, LangChain, or Pydantic AI on the fly, so any tool works with any
+supported framework without modification.
 
 ---
 
 ## MCP Support
 
-Sprout exposes every registered tool over the [Model Context Protocol](https://modelcontextprotocol.io/) via `mcp_server` on port 8768. Standard MCP clients connect and use Sprout tools directly.
+Sprout exposes every registered tool over the
+[Model Context Protocol](https://modelcontextprotocol.io/) via `mcp_server`.
+Standard MCP clients connect and use Sprout tools directly.
 
-- **Auth**: OAuth 2.1 with PKCE. The MCP server is itself the OAuth Authorization Server; Clerk provides user identity via redirect.
-- **Dynamic client registration** (RFC 7591) is enabled — MCP clients register themselves without manual config.
-- **User context**: once authenticated, the user's saved tool env vars (e.g. `NEWS_API_KEY`, `SERPER_API_KEY`) stored in Clerk `private_metadata` are injected into tool execution automatically.
-- **Hot refresh**: newly synthesized tools become available to MCP clients through 30-second polling (and via the `sprout_refresh_tools` utility tool).
-- **Fallback**: if `CLERK_DOMAIN` is unset, the server runs unauthenticated for local dev.
+- **Auth**: OAuth 2.1 with PKCE. The MCP server is itself the authorization server;
+  Clerk provides user identity. Dynamic client registration (RFC 7591) is enabled.
+- **User context**: a signed-in user's saved tool env vars (stored in Clerk
+  `private_metadata`) are injected into tool execution automatically.
+- **Hot refresh**: newly synthesized tools become available to MCP clients through
+  polling — no reconnect needed.
 
-To connect **Claude Desktop** (or any MCP client), point it at `http://localhost:8768/mcp`. The browser will open Clerk's sign-in page, then hand control back to the client.
+Point any MCP client at the `/mcp` endpoint of your Sprout server to connect.
 
 ---
 
-## Quick Start
+## Run it locally
 
-### Prerequisites
+### With Docker (recommended)
 
+**Prerequisites**
 - Docker & Docker Compose
-- A [Mistral API key](https://console.mistral.ai/) for the planner
-- An [NVIDIA NIM API key](https://build.nvidia.com/) for Vibe synthesis
+- A [Groq API key](https://console.groq.com) (planner / agent execution)
+- A [Mistral API key](https://console.mistral.ai/) (tool synthesis via Codestral)
 - A [Clerk](https://dashboard.clerk.com) project (publishable + secret keys)
-
-Local development without Docker additionally needs Python 3.12+, [uv](https://docs.astral.sh/uv/), Node.js 20+, and [pnpm](https://pnpm.io/).
-
-### 1. Clone and configure
+- *Optional:* an [NVIDIA NIM key](https://build.nvidia.com/) as an extra fallback
 
 ```bash
-git clone git@github.com:aryabyte21/sprout.git
+git clone https://github.com/shiv0112/sprout.git
 cd sprout
 cp .env.example .env
 # Fill in .env:
-#   MISTRAL_API_KEY, NVIDIA_API_KEY
+#   GROQ_API_KEY, MISTRAL_API_KEY
 #   CLERK_DOMAIN, CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-#   SPROUT_INTERNAL_SECRET (generate: python -c "import secrets; print(secrets.token_hex(32))")
+#   SPROUT_INTERNAL_SECRET  (python -c "import secrets; print(secrets.token_hex(32))")
+
+./dev.sh          # builds + starts everything via Docker Compose (hot-reload)
 ```
 
-### 2. Start everything
+Then:
+- **Web UI** — http://localhost:3001
+- **Registry API** — http://localhost:8766
+- **MCP server** — http://localhost:8768/mcp
+
+### Without Docker
 
 ```bash
-./dev.sh
-```
-
-This builds and starts all services via Docker Compose with hot-reload enabled. Container health checks gate startup order so dependents wait for the registry.
-
-### 3. Use it
-
-- **Web UI**: [http://localhost:3001](http://localhost:3001) — sign in via Clerk, start chatting
-- **Registry API**: [http://localhost:8766](http://localhost:8766) — direct HTTP access
-- **MCP server**: `http://localhost:8768/mcp` — connect from Claude Desktop, ChatGPT, etc.
-
----
-
-## Local Development (without Docker)
-
-```bash
-# Install Python deps (uv workspace across all packages)
-uv sync
-
-# Install frontend deps
+uv sync                                          # install all Python deps
 cd packages/registry_ui && pnpm install && cd ../..
 
-# Run services individually (each in its own terminal)
-uv run uvicorn sprout_registry.main:app --host 0.0.0.0 --port 8766 --reload
-uv run uvicorn sprout_chat_backend.main:app --host 0.0.0.0 --port 8765 --reload
-uv run uvicorn sprout_synthesis.main:app --host 0.0.0.0 --port 8002
+# each in its own terminal
+uv run uvicorn sprout_registry.main:app --port 8766 --reload
+uv run uvicorn sprout_chat_backend.main:app --port 8765 --reload
+uv run uvicorn sprout_synthesis.main:app --port 8002
 uv run python -m sprout_mcp.main streamable-http
 cd packages/registry_ui && pnpm run dev
 ```
@@ -224,18 +222,10 @@ cd packages/registry_ui && pnpm run dev
 ### Tests & lint
 
 ```bash
-uv run pytest                                    # All Python tests
-uv run pytest packages/mcp_server/tests/ -v      # Per-package
-uv run ruff check packages/                      # Lint Python
-uv run mypy packages/                            # Type check
-cd packages/registry_ui && pnpm run lint         # Frontend lint (zero warnings)
-cd packages/registry_ui && pnpm run build        # Frontend build
-```
-
-### Monorepo orchestration
-
-```bash
-pnpm nx run <project>:<target>   # Nx-cached tasks across the workspace
+uv run pytest                                    # Python tests
+uv run ruff check packages/                      # lint
+uv run mypy packages/                            # type check
+cd packages/registry_ui && pnpm run lint         # frontend lint (zero warnings)
 ```
 
 ---
@@ -245,29 +235,16 @@ pnpm nx run <project>:<target>   # Nx-cached tasks across the workspace
 ```
 sprout/
 ├── packages/
-│   ├── shared/              # sprout_shared — auth, rate-limit, config, CORS, logging
-│   ├── registry_api/        # sprout_registry — tool CRUD, search, execute, Clerk auth
+│   ├── shared/              # sprout_shared — models, auth, config, CORS, rate-limit
+│   ├── registry_api/        # sprout_registry — tool CRUD, search, execute, auth
 │   ├── chat_backend/        # sprout_chat_backend — planner, DAG executor, SSE
-│   ├── synthesis_service/   # sprout_synthesis — OpenCode + NIM wrapper
+│   ├── synthesis_service/   # sprout_synthesis — Vibe (OpenCode) tool synthesis
 │   ├── tool_executor/       # sprout_executor — sandboxed execution
 │   ├── mcp_server/          # sprout_mcp — MCP bridge + OAuth 2.1 AS
-│   │   └── sprout_mcp/auth/   # store, provider, Clerk callback
 │   └── registry_ui/         # Next.js 16 / React 19 / Tailwind 4 / Clerk
-├── registry/
-│   └── tools/               # All registered tools (spec.yaml + impl.py per version)
-├── docs/
-│   └── superpowers/
-│       ├── specs/           # Design specs for major features
-│       └── plans/           # Implementation plans
-├── infra/
-│   ├── terraform/           # GCP infrastructure (GKE, VPC, IAM, storage)
-│   └── tanka/               # Kubernetes manifests (Jsonnet)
-├── docker-compose.yml       # Dev stack definition
-├── docker/                  # Service Dockerfiles
-├── dev.sh                   # Convenience launcher
-├── pyproject.toml           # uv workspace root
-├── package.json             # pnpm root + Nx config
-└── .env                     # API keys (git-ignored)
+├── registry/tools/          # registered tools (spec.yaml + impl.py per version)
+├── docker-compose.yml       # local dev stack
+└── docs/                    # setup & deployment guides
 ```
 
 ---
@@ -276,76 +253,42 @@ sprout/
 
 | Layer | Stack |
 |-------|-------|
-| Backend | Python 3.12+, FastAPI, SQLAlchemy 2.0, asyncpg/aiosqlite, Alembic-ready |
-| Multi-agent | PyAutoGen (AG2) |
-| LLM | Mistral Large (planning), Mistral Codestral / NVIDIA NIM (synthesis) |
+| Backend | Python 3.12+, FastAPI, SQLAlchemy 2.0, asyncpg/aiosqlite |
+| LLM | Groq (planning) → NVIDIA NIM → Mistral (fallback); OpenCode + Codestral (synthesis) |
+| Multi-agent | AG2 (PyAutoGen) |
+| Frontend | Next.js 16, React 19, TypeScript 5.9, Tailwind 4, Clerk, Vercel AI SDK, TanStack Query |
 | Auth | Clerk (JWT for browser, API keys for CLI, OAuth 2.1 for MCP clients) |
-| Frontend | Next.js 16, React 19, TypeScript 5.9, Tailwind 4, shadcn/ui, TanStack Query, Vercel AI SDK |
-| MCP | Anthropic MCP SDK 1.26+, streamable HTTP transport |
-| Infra (local) | Docker Compose, PostgreSQL 17, Redis 7 |
-| Infra (cloud) | Terraform, GKE Standard, nginx-ingress, cert-manager (Let's Encrypt), Tanka/Jsonnet, Prometheus, Grafana, GitHub Actions CI/CD |
-| Tooling | uv (Python), pnpm + Nx (monorepo), ruff, mypy, ESLint |
+| MCP | Anthropic MCP SDK, streamable HTTP transport |
+| Infra | Docker Compose, PostgreSQL 17, Redis 7; uv + pnpm + Nx |
 
 ---
 
-## Security Model
+## Security
 
-- **Synthesized code runs in a constrained subprocess** — dangerous imports and built-ins (shell execution, unsafe deserializers, direct socket access, GUI automation, etc.) are rejected at registration and execution time via AST validation.
-- **Per-tool env vars declared explicitly** — each tool's `REQUIRED_ENV_VARS` list is surfaced to the user; keys are stored encrypted in Clerk `private_metadata` and injected at execution time.
-- **OAuth 2.1 + PKCE** for MCP clients — HMAC-signed state, single-use auth codes, paired access/refresh token revocation, client-bound token lookups.
-- **Service-to-service auth** via `X-Internal-Secret` header for inter-service calls inside the Docker network.
-- **Rate limiting** per user/IP via slowapi + Redis.
-- **CORS** strictly allowlisted by `SPROUT_ENV` — production refuses to start without an explicit `CORS_ORIGINS`.
-
----
-
-## Live Deployment
-
-Sprout is deployed on **GKE Standard** in Singapore (`asia-southeast1-a`).
-
-| Service | URL |
-|---------|-----|
-| Registry UI | https://sprout.35.197.159.116.sslip.io |
-| Registry API | https://api.35.197.159.116.sslip.io |
-| Chat Backend | https://chat.35.197.159.116.sslip.io |
-| MCP Server | https://mcp.35.197.159.116.sslip.io |
-| Grafana | https://grafana.35.197.159.116.sslip.io |
-
-### Grafana
-
-- **URL**: https://grafana.35.197.159.116.sslip.io
-- **Username**: `admin`
-- **Password**: `sprout-admin`
-- **Dashboards**: Pre-configured Prometheus datasource. Metrics include `sprout_http_requests_total` (request count by service/method/path/status) and `sprout_http_request_duration_seconds` (latency histogram).
-
-### MCP Client Connection
-
-Point any MCP client (Claude Desktop, Cursor, VS Code Copilot) at:
-```
-https://mcp.35.197.159.116.sslip.io/mcp
-```
-
-### Infrastructure
-
-- **Cluster**: 1x e2-standard-2 (2 vCPU, 8 GB) on-demand + 0-3x e2-small spot burst pool
-- **Data**: In-cluster PostgreSQL 17 (10Gi PVC) + Redis 7 (ephemeral)
-- **Observability**: Self-hosted Prometheus + Grafana
-- **CI/CD**: Push to `main` triggers automated test, build, and deploy via GitHub Actions + Workload Identity Federation
-- **IaC**: Terraform (GCP infra) + Tanka/Jsonnet (Kubernetes manifests)
-- **Cost**: ~$70/month
-
-See `docs/infrastructure-report.md` for full deployment documentation.
+- **Synthesized code is AST-validated** before it can run — dangerous imports and
+  builtins (shell execution, unsafe deserializers, raw sockets, GUI automation, …)
+  are rejected at registration and execution time.
+- **Per-tool env vars are explicit** — each tool declares its `REQUIRED_ENV_VARS`;
+  keys are stored in Clerk `private_metadata` and injected only at execution.
+- **OAuth 2.1 + PKCE** for MCP clients, **API keys** for CLI, **Clerk JWT** for the browser.
+- **Service-to-service auth** via an internal secret, plus per-user rate limiting
+  and a strict CORS allowlist.
 
 ---
 
-## AI Declaration
+## Deployment
 
-AI tools were used to accelerate development and enforce code quality:
+Sprout is deployed and live at **https://sprout-tool-registry.vercel.app/** — the
+frontend on Vercel, the backend services as a single containerized stack. To
+self-host the backend with one command, see
+[docs/DEPLOY_DROPLET.md](docs/DEPLOY_DROPLET.md).
 
-- **Code Review**: Gemini Code Assist, GitHub Copilot, and Cubic reviewed every PR, catching issues like non-atomic Redis locks, Kubernetes selector mismatches, and env var expansion bugs before they reached production.
-- **Documentation**: AI assisted in drafting infrastructure reports and deployment plans, which were reviewed and corrected by the team.
+---
 
-All architectural decisions, deployment debugging, and cost tradeoffs were made by the team.
+## Contributors
+
+- **[Shivansh](https://github.com/shiv0112)**
+- **Jahnvi**
 
 ---
 

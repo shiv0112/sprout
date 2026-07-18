@@ -34,6 +34,7 @@ Flow (example):
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import re
@@ -235,7 +236,7 @@ def _make_http_tool(
     kwargs_str = ", ".join(f'"{p["name"]}": {p["name"]}' for p in params)
 
     fn_source = (
-        f"def {name}({sig_str}):\n"
+        f"def {name}({sig_str}) -> str:\n"
         f"    \"\"\"{spec['description']}\"\"\"\n"
         f"    resp = _http_call(_server_url, _tool_id, {{{kwargs_str}}})\n"
         f"    return resp\n"
@@ -284,7 +285,13 @@ def _make_http_tool(
                     on_event({"type": "attachment", **att})
         if on_event:
             on_event({"type": "tool_result", "node_id": node_id, "tool": name, "result": result})
-        return result
+        # AG2 feeds the return value straight into the model's context, so hand
+        # it clean text (a JSON string), not a bare dict. Returning a dict makes
+        # AG2 warn and the model can't read the values — it ends up describing
+        # the tool instead of reporting the result (e.g. "12 people in space").
+        if isinstance(result, str):
+            return result
+        return json.dumps(result, ensure_ascii=False, default=str)
 
     namespace = {
         "_http_call":  _http_call,

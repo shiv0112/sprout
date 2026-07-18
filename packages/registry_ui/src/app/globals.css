@@ -48,47 +48,65 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Sprout botanical-pigment theme ──────────────────────────
+   LIGHT = "Almanac"  — seed-catalog paper, madder-root red,
+           marigold-ink accent, walnut-ink text.
+   DARK  = "Woad & Marigold" — natural indigo (woad) primary
+           with a marigold accent, the dyer's complementary.
+   Brand hues:  Madder #B23A2E · Woad #5B74D6 · Marigold #E0A93B */
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(240 10% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(240 10% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(240 10% 3.9%);
-  --primary: hsl(240 5.9% 10%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(240 4.8% 95.9%);
-  --secondary-foreground: hsl(240 5.9% 10%);
-  --muted: hsl(240 4.8% 95.9%);
-  --muted-foreground: hsl(240 3.8% 46.1%);
-  --accent: hsl(240 4.8% 95.9%);
-  --accent-foreground: hsl(240 5.9% 10%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --border: hsl(240 5.9% 90%);
-  --input: hsl(240 5.9% 90%);
-  --ring: hsl(240 5.9% 10%);
+  /* Almanac — light */
+  --background: hsl(41 44% 91%);
+  --foreground: hsl(34 30% 14%);
+  --card: hsl(40 58% 95%);
+  --card-foreground: hsl(34 30% 14%);
+  --popover: hsl(40 58% 95%);
+  --popover-foreground: hsl(34 30% 14%);
+  --primary: hsl(4 59% 44%);
+  --primary-foreground: hsl(30 76% 96%);
+  --secondary: hsl(41 42% 85%);
+  --secondary-foreground: hsl(35 30% 23%);
+  --muted: hsl(41 42% 85%);
+  --muted-foreground: hsl(37 22% 43%);
+  /* accent = marigold ink */
+  --accent: hsl(43 58% 85%);
+  --accent-foreground: hsl(37 80% 26%);
+  --destructive: hsl(0 68% 44%);
+  --border: hsl(40 36% 79%);
+  --input: hsl(40 36% 79%);
+  --ring: hsl(4 59% 44%);
   --radius: 0.75rem;
+  /* ambient glow — madder + marigold on paper */
+  --glow-1: hsl(4 59% 44% / 0.10);
+  --glow-2: hsl(41 72% 46% / 0.14);
+  --glow-3: hsl(4 55% 40% / 0.07);
 }
 
 .dark {
-  --background: hsl(224 29% 7%);
-  --foreground: hsl(210 40% 98%);
-  --card: hsl(224 26% 10%);
-  --card-foreground: hsl(210 40% 98%);
-  --popover: hsl(224 26% 10%);
-  --popover-foreground: hsl(210 40% 98%);
-  --primary: hsl(24 96% 61%);
-  --primary-foreground: hsl(222 45% 9%);
-  --secondary: hsl(223 20% 14%);
-  --secondary-foreground: hsl(210 40% 98%);
-  --muted: hsl(223 20% 15%);
-  --muted-foreground: hsl(215 17% 68%);
-  --accent: hsl(223 20% 16%);
-  --accent-foreground: hsl(210 40% 98%);
-  --destructive: hsl(0 63% 31%);
-  --border: hsl(222 18% 22%);
-  --input: hsl(222 18% 22%);
-  --ring: hsl(24 96% 61%);
+  /* Woad & Marigold — dark */
+  --background: hsl(222 33% 7%);
+  --foreground: hsl(228 38% 93%);
+  --card: hsl(223 34% 11%);
+  --card-foreground: hsl(228 38% 93%);
+  --popover: hsl(223 34% 11%);
+  --popover-foreground: hsl(228 38% 93%);
+  --primary: hsl(226 61% 60%);
+  --primary-foreground: hsl(226 60% 9%);
+  --secondary: hsl(223 28% 15%);
+  --secondary-foreground: hsl(228 38% 93%);
+  --muted: hsl(223 28% 15%);
+  --muted-foreground: hsl(224 16% 66%);
+  /* accent = marigold, warmed for the dark ground */
+  --accent: hsl(41 55% 16%);
+  --accent-foreground: hsl(41 72% 62%);
+  --destructive: hsl(0 63% 44%);
+  --border: hsl(223 24% 21%);
+  --input: hsl(223 24% 21%);
+  --ring: hsl(226 61% 60%);
+  /* ambient glow — woad + marigold on the indigo vat */
+  --glow-1: hsl(226 61% 60% / 0.14);
+  --glow-2: hsl(41 72% 55% / 0.10);
+  --glow-3: hsl(226 55% 52% / 0.09);
 }
 
 @layer base {
@@ -98,9 +116,9 @@
   body {
     @apply bg-background text-foreground;
     background-image:
-      radial-gradient(circle at 10% -5%, hsl(24 98% 64% / 0.12), transparent 26%),
-      radial-gradient(circle at 95% 8%, hsl(205 95% 69% / 0.09), transparent 24%),
-      radial-gradient(circle at 80% 82%, hsl(258 92% 72% / 0.08), transparent 28%);
+      radial-gradient(circle at 10% -5%, var(--glow-1), transparent 26%),
+      radial-gradient(circle at 95% 8%, var(--glow-2), transparent 24%),
+      radial-gradient(circle at 80% 82%, var(--glow-3), transparent 28%);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -116,7 +134,7 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(135deg, hsl(24 100% 63% / 0.14), transparent 45%);
+    background: linear-gradient(135deg, var(--glow-1), transparent 45%);
   }
 
   .section-surface {

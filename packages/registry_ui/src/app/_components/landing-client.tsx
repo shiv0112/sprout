@@ -93,9 +93,9 @@ function Backdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       {/* Aurora */}
-      <div className="absolute -top-[20%] left-1/2 h-[80vh] w-[120vw] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse_at_center,hsl(26_92%_58%_/_0.18),transparent_60%)] blur-3xl" />
-      <div className="absolute top-[40vh] -left-[10%] h-[70vh] w-[60vw] rounded-full bg-[radial-gradient(circle,hsl(265_80%_60%_/_0.10),transparent_70%)] blur-3xl" />
-      <div className="absolute top-[80vh] right-[-15%] h-[60vh] w-[55vw] rounded-full bg-[radial-gradient(circle,hsl(195_80%_60%_/_0.08),transparent_70%)] blur-3xl" />
+      <div className="absolute -top-[20%] left-1/2 h-[80vh] w-[120vw] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse_at_center,hsl(226_61%_60%_/_0.18),transparent_60%)] blur-3xl" />
+      <div className="absolute top-[40vh] -left-[10%] h-[70vh] w-[60vw] rounded-full bg-[radial-gradient(circle,hsl(226_61%_60%_/_0.10),transparent_70%)] blur-3xl" />
+      <div className="absolute top-[80vh] right-[-15%] h-[60vh] w-[55vw] rounded-full bg-[radial-gradient(circle,hsl(41_72%_55%_/_0.08),transparent_70%)] blur-3xl" />
       {/* Subtle grid */}
       <div
         className="absolute inset-0 opacity-[0.035]"
@@ -154,7 +154,7 @@ function Hero({ toolCount }: { toolCount: number }) {
         style={{ x: orbX, y: orbY }}
         className="pointer-events-none absolute inset-0 -z-10"
       >
-        <div className="absolute left-1/2 top-1/3 size-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,hsl(26_92%_58%_/_0.22),transparent_60%)] blur-3xl" />
+        <div className="absolute left-1/2 top-1/3 size-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,hsl(226_61%_60%_/_0.22),transparent_60%)] blur-3xl" />
       </motion.div>
       <motion.div style={{ y, opacity, scale }} className="mx-auto max-w-5xl">
         <motion.div
@@ -179,7 +179,7 @@ function Hero({ toolCount }: { toolCount: number }) {
           <span className="block text-[clamp(2.75rem,8.5vw,6.75rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
             <RotatingWord
               words={["build themselves", "test themselves", "ship themselves", "evolve themselves"]}
-              textClassName="bg-gradient-to-r from-primary via-orange-300 to-amber-200 bg-clip-text text-transparent"
+              textClassName="bg-gradient-to-r from-primary via-primary/80 to-accent-foreground bg-clip-text text-transparent"
             />
           </span>
         </SpotifyHeadline>
@@ -206,7 +206,7 @@ function Hero({ toolCount }: { toolCount: number }) {
               <Link href="/chat">
                 <Button
                   size="lg"
-                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_40px_-12px_hsl(26_92%_58%_/_0.55)] transition-all hover:bg-primary/95 hover:shadow-[0_24px_48px_-10px_hsl(26_92%_58%_/_0.6)]"
+                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_40px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95 hover:shadow-[0_24px_48px_-10px_hsl(226_61%_60%_/_0.6)]"
                 >
                   Open the console
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -219,7 +219,7 @@ function Hero({ toolCount }: { toolCount: number }) {
               <SignUpButton mode="modal" forceRedirectUrl="/chat" signInForceRedirectUrl="/chat">
                 <Button
                   size="lg"
-                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_40px_-12px_hsl(26_92%_58%_/_0.55)] transition-all hover:bg-primary/95 hover:shadow-[0_24px_48px_-10px_hsl(26_92%_58%_/_0.6)]"
+                  className="group h-12 gap-2 rounded-2xl bg-primary px-6 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_40px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95 hover:shadow-[0_24px_48px_-10px_hsl(226_61%_60%_/_0.6)]"
                 >
                   Get started — free
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -257,8 +257,8 @@ function Hero({ toolCount }: { toolCount: number }) {
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 18, ease: "linear" }}
           >
-            <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(26 92% 58% / 0.18)" strokeWidth="0.5" strokeDasharray="2 6" />
-            <circle cx="96" cy="50" r="2" fill="hsl(26 92% 58%)" />
+            <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(226 61% 60% / 0.18)" strokeWidth="0.5" strokeDasharray="2 6" />
+            <circle cx="96" cy="50" r="2" fill="hsl(226 61% 60%)" />
           </motion.svg>
           {/* Inner counter-orbit */}
           <motion.svg
@@ -267,8 +267,8 @@ function Hero({ toolCount }: { toolCount: number }) {
             animate={{ rotate: -360 }}
             transition={{ repeat: Infinity, duration: 11, ease: "linear" }}
           >
-            <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(26 92% 58% / 0.28)" strokeWidth="0.4" strokeDasharray="1 4" />
-            <circle cx="50" cy="10" r="1.6" fill="hsl(26 92% 58% / 0.85)" />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(226 61% 60% / 0.28)" strokeWidth="0.4" strokeDasharray="1 4" />
+            <circle cx="50" cy="10" r="1.6" fill="hsl(226 61% 60% / 0.85)" />
           </motion.svg>
           {/* Core */}
           <div className="absolute inset-0 m-auto flex size-12 items-center justify-center">
@@ -385,7 +385,7 @@ function Problem() {
             transition={{ duration: 0.5, delay: i * 0.08 }}
             className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent p-6 transition-colors hover:border-white/15"
           >
-            <span className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "radial-gradient(400px circle at var(--x,50%) var(--y,50%), hsl(26 92% 58% / 0.08), transparent 40%)" }} />
+            <span className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "radial-gradient(400px circle at var(--x,50%) var(--y,50%), hsl(226 61% 60% / 0.08), transparent 40%)" }} />
             <p.icon className="size-5 text-primary/85" strokeWidth={1.7} />
             <h3 className="mt-5 text-[17px] font-semibold tracking-tight text-foreground">{p.title}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground/85">{p.body}</p>
@@ -409,7 +409,7 @@ function Pipeline() {
     <section className="px-4 py-16 sm:px-6">
       <div className="mx-auto max-w-7xl">
         <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-white/[0.005] px-6 py-20 backdrop-blur-sm sm:px-12 lg:px-16">
-          <div className="pointer-events-none absolute -top-32 left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,hsl(26_92%_58%_/_0.07),transparent_70%)] blur-3xl" />
+          <div className="pointer-events-none absolute -top-32 left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,hsl(226_61%_60%_/_0.07),transparent_70%)] blur-3xl" />
 
           <SectionLabel>The flow</SectionLabel>
           <SectionHeadline>
@@ -442,7 +442,7 @@ function Pipeline() {
             >
               <div className="relative">
                 <span className="absolute -inset-3 rounded-full bg-primary/60 blur-md" />
-                <span className="relative block size-2 rounded-full bg-primary shadow-[0_0_18px_hsl(26_92%_58%_/_0.9)]" />
+                <span className="relative block size-2 rounded-full bg-primary shadow-[0_0_18px_hsl(226_61%_60%_/_0.9)]" />
               </div>
             </motion.div>
 
@@ -487,7 +487,7 @@ function PipelineStep({
         style={{
           boxShadow: useTransform(
             glow,
-            (v: number) => `0 0 0 1px hsl(26 92% 58% / ${0.2 + v * 0.4}), 0 18px 48px -12px hsl(26 92% 58% / ${v * 0.45})`,
+            (v: number) => `0 0 0 1px hsl(226 61% 60% / ${0.2 + v * 0.4}), 0 18px 48px -12px hsl(226 61% 60% / ${v * 0.45})`,
           ),
           scale: useTransform(fill, [0, 1], [1, 1.04]),
         }}
@@ -566,7 +566,7 @@ function ShowcaseCard({ tool, index }: { tool: Tool; index: number }) {
   const py = useMotionValue(0.5)
   const rotateX = useSpring(useTransform(py, [0, 1], [6, -6]), { stiffness: 220, damping: 18 })
   const rotateY = useSpring(useTransform(px, [0, 1], [-6, 6]), { stiffness: 220, damping: 18 })
-  const spotlight = useMotionTemplate`radial-gradient(360px circle at ${useTransform(px, (v) => `${v * 100}%`)} ${useTransform(py, (v) => `${v * 100}%`)}, hsl(26 92% 58% / 0.18), transparent 42%)`
+  const spotlight = useMotionTemplate`radial-gradient(360px circle at ${useTransform(px, (v) => `${v * 100}%`)} ${useTransform(py, (v) => `${v * 100}%`)}, hsl(226 61% 60% / 0.18), transparent 42%)`
 
   function handleMove(e: React.PointerEvent<HTMLAnchorElement>) {
     const el = ref.current
@@ -661,7 +661,7 @@ function FinalCta() {
   return (
     <section className="relative overflow-hidden px-6 py-40 text-center">
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-1/2 size-[120vw] max-w-[1400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,hsl(26_92%_58%_/_0.18),transparent_60%)] blur-3xl" />
+        <div className="absolute left-1/2 top-1/2 size-[120vw] max-w-[1400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,hsl(226_61%_60%_/_0.18),transparent_60%)] blur-3xl" />
       </div>
 
       <motion.div
@@ -676,7 +676,7 @@ function FinalCta() {
         </h2>
         <h2 className="text-[clamp(2.25rem,6.5vw,5rem)] font-semibold leading-[1] tracking-[-0.04em]">
           <span
-            className="bg-gradient-to-r from-primary via-orange-300 to-amber-200 bg-clip-text text-transparent"
+            className="bg-gradient-to-r from-primary via-primary/80 to-accent-foreground bg-clip-text text-transparent"
             style={{ backgroundSize: "200% 100%", animation: "gradientSlide 6s ease-in-out infinite" }}
           >
             Start using them
@@ -693,7 +693,7 @@ function FinalCta() {
               <Link href="/chat">
                 <Button
                   size="lg"
-                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_44px_-12px_hsl(26_92%_58%_/_0.55)] transition-all hover:bg-primary/95"
+                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_44px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95"
                 >
                   Open the console
                   <ArrowRight className="size-4" />
@@ -706,7 +706,7 @@ function FinalCta() {
               <SignUpButton mode="modal" forceRedirectUrl="/chat" signInForceRedirectUrl="/chat">
                 <Button
                   size="lg"
-                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_44px_-12px_hsl(26_92%_58%_/_0.55)] transition-all hover:bg-primary/95"
+                  className="h-12 gap-2 rounded-2xl bg-primary px-7 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_44px_-12px_hsl(226_61%_60%_/_0.55)] transition-all hover:bg-primary/95"
                 >
                   Get started — free
                   <ArrowRight className="size-4" />

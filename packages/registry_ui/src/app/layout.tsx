@@ -7,8 +7,13 @@ import { Sprout } from "lucide-react"
 
 import { NavLinks } from "@/app/_components/nav-links"
 import { Providers } from "@/app/_components/providers"
+import { ThemeToggle } from "@/app/_components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import "./globals.css"
+
+// Applies the stored theme before first paint so there's no flash of the wrong
+// palette. Default (no stored choice / no JS) stays dark = "Woad & Marigold".
+const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=document.documentElement;if(t==='light'){d.classList.remove('dark')}else if(t==='dark'){d.classList.add('dark')}}catch(e){}})()`
 
 const figtree = Figtree({
   variable: "--font-figtree",
@@ -38,13 +43,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground">
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <ClerkProvider appearance={{ baseTheme: dark }}>
         <Providers>
           <div className="relative flex min-h-full flex-col overflow-x-clip">
             <div className="pointer-events-none absolute inset-0 -z-10">
-              <div className="absolute left-1/2 top-0 h-[28rem] w-[48rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,hsl(24_95%_58%_/_0.12),transparent_70%)] blur-3xl" />
-              <div className="absolute -left-40 top-52 h-96 w-96 rounded-full bg-[radial-gradient(circle_at_center,hsl(204_100%_68%_/_0.09),transparent_72%)] blur-3xl" />
-              <div className="absolute bottom-0 right-0 h-[30rem] w-[34rem] bg-[radial-gradient(circle_at_center,hsl(258_92%_72%_/_0.08),transparent_72%)] blur-3xl" />
+              <div className="absolute left-1/2 top-0 h-[28rem] w-[48rem] -translate-x-1/2 rounded-full bg-primary/12 blur-3xl" />
+              <div className="absolute -left-40 top-52 h-96 w-96 rounded-full bg-accent-foreground/10 blur-3xl" />
+              <div className="absolute bottom-0 right-0 h-[30rem] w-[34rem] rounded-full bg-primary/[0.08] blur-3xl" />
             </div>
 
             <header className="sticky top-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-2xl backdrop-saturate-150">
@@ -66,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <NavLinks items={nav} />
 
                 <div className="ml-auto flex items-center gap-3">
+                  <ThemeToggle />
                   <Show when="signed-out">
                     <SignInButton mode="modal">
                       <Button variant="outline" size="sm" className="rounded-lg px-3.5 text-xs">

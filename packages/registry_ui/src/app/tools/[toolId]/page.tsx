@@ -51,7 +51,7 @@ export default async function ToolDetailPage({
       <div className="hero-surface mb-8">
         {/* Background gradient orbs */}
         <div className="pointer-events-none absolute -left-16 -top-16 size-48 rounded-full bg-gradient-to-br from-primary/[0.14] to-primary/[0.03] blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -right-12 size-36 rounded-full bg-gradient-to-br from-violet-500/[0.1] to-blue-500/[0.03] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-12 -right-12 size-36 rounded-full bg-gradient-to-br from-primary/[0.1] to-accent-foreground/[0.03] blur-3xl" />
 
         <div className="relative space-y-5">
           <div className="flex flex-wrap items-center gap-3">

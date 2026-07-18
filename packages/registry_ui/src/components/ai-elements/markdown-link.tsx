@@ -158,7 +158,7 @@ export const MarkdownLink = memo(function MarkdownLink({
               type="button"
               size="sm"
               onClick={handleOpen}
-              className="h-9 flex-1 gap-1.5 bg-primary text-[12px] font-semibold text-primary-foreground shadow-[0_8px_22px_hsl(26_92%_58%_/_0.22)] hover:bg-primary/92"
+              className="h-9 flex-1 gap-1.5 bg-primary text-[12px] font-semibold text-primary-foreground shadow-[0_8px_22px_hsl(226_61%_60%_/_0.22)] hover:bg-primary/92"
             >
               <ExternalLink className="size-3.5" />
               Open

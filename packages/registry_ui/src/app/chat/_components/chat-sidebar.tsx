@@ -90,7 +90,7 @@ export function ChatSidebar({
       <div className="shrink-0 space-y-3 border-b border-white/5 px-4 py-4">
         <Button
           onClick={onNew}
-          className="h-10 w-full justify-start gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[0_10px_24px_hsl(26_92%_58%_/_0.16)] transition-all hover:-translate-y-px hover:bg-primary/92 hover:shadow-[0_12px_28px_hsl(26_92%_58%_/_0.18)]"
+          className="h-10 w-full justify-start gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[0_10px_24px_hsl(226_61%_60%_/_0.16)] transition-all hover:-translate-y-px hover:bg-primary/92 hover:shadow-[0_12px_28px_hsl(226_61%_60%_/_0.18)]"
           size="sm"
         >
           <Plus className="size-4" />

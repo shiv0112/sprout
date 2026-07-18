@@ -1066,10 +1066,14 @@ def _launch_execution(run_id: str, graph: dict, extra_env: dict[str, str], api_k
                 active_graph = planner.plan(graph["task"], tools=tools_list)
                 q.put({"type": "plan_updated", **active_graph})
 
-            # NVIDIA NIM primary, Mistral fallback. AG2 tries each config_list
-            # entry in order and falls back to the next on failure/rate-limit.
+            # AG2 executes a multi-turn tool-calling loop. Use Groq's fast,
+            # schema-clean tool-caller (llama-3.3-70b) here, NOT the reasoning
+            # model — reasoning models tend to over-call tools and not emit clean
+            # termination inside agentic loops (same reason gpt-oss can't drive
+            # OpenCode). Planning still uses the reasoning model. Falls back
+            # through the chain on failure/rate-limit.
             llm_config = {
-                "config_list": ag2_config_list(api_key),
+                "config_list": ag2_config_list(api_key, reasoning=False),
                 "cache_seed": None,
             }
             flow = SproutGraphFlow(

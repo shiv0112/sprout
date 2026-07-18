@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprout backend reverse proxy — droplet (frontend is on Vercel).
+#
+# SITE_ADDRESS MUST be a hostname (domain or *.sslip.io), so Caddy provisions a
+# Let's Encrypt certificate and serves HTTPS. The Vercel frontend is HTTPS, and
+# browsers block http calls from an https page (mixed content), so the backend
+# has to be HTTPS too.
+#
+# Only three services are exposed. `handle_path` strips the prefix, so external
+# /registry/tools reaches registry_api as /tools. synthesis_service and
+# tool_executor are intentionally NOT routed — they are internal-only.
+# ─────────────────────────────────────────────────────────────────────────────
+{
+	admin off
+}
+
+{$SITE_ADDRESS} {
+	# chat_backend streams Server-Sent Events — disable proxy buffering.
+	handle_path /chat/* {
+		reverse_proxy chat_backend:8765 {
+			flush_interval -1
+		}
+	}
+
+	handle_path /registry/* {
+		reverse_proxy registry_api:8766
+	}
+
+	# MCP bridge + OAuth 2.1 AS. External MCP clients connect here; the server's
+	# issuer is SPROUT_MCP_ISSUER_URL = <this-host>/mcp.
+	handle_path /mcp/* {
+		reverse_proxy mcp_server:8768
+	}
+
+	# Bare host → a friendly note. Everything else → 404 (nothing to see here).
+	handle / {
+		respond "Sprout backend. Endpoints: /registry, /chat, /mcp" 200
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

@@ -1,0 +1,183 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprout — BACKEND stack for a single host (e.g. a DigitalOcean droplet).
+#
+# The frontend (packages/registry_ui) deploys separately to Vercel. This stack
+# runs everything else: the Python services, PostgreSQL, Redis, and a Caddy
+# reverse proxy.
+#
+# One command:  ./deploy.sh
+#
+# Public surface (behind Caddy on 80/443) is deliberately minimal:
+#
+#   :443 ──► Caddy ──┬─ /registry/*  ─► registry_api:8766   (browser + Vercel)
+#                    ├─ /chat/*      ─► chat_backend:8765    (browser SSE + Vercel)
+#                    └─ /mcp/*       ─► mcp_server:8768      (external MCP clients)
+#
+#   synthesis_service and tool_executor are NOT exposed — they are reachable only
+#   over the internal Docker network by registry_api / chat_backend. Postgres and
+#   Redis are internal-only too.
+#
+# Access control is layered (see docs/DEPLOY_DROPLET.md):
+#   • CORS locked to the Vercel origin (CORS_ORIGINS)
+#   • per-user auth (Clerk JWT / API keys) on sensitive endpoints
+#   • service-to-service secret (SPROUT_INTERNAL_SECRET)
+#   • a host firewall exposing only 22/80/443
+# ─────────────────────────────────────────────────────────────────────────────
+name: sprout
+
+services:
+  # ── PostgreSQL (internal only) ───────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sprout_registry
+      POSTGRES_USER: sprout
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sprout -d sprout_registry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (internal only) ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Tool Executor (internal only — registry_api calls it over the network) ───
+  tool_executor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.python.prod
+      args:
+        SERVICE: tool_executor
+        MODULE: sprout_executor.main:app
+        PORT: "8767"
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      SPROUT_ENV: production
+
+  # ── Registry API (8766) — the hub (PUBLIC via Caddy /registry) ───────────────
+  registry_api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.python.prod
+      args:
+        SERVICE: registry_api
+        MODULE: sprout_registry.main:app
+        PORT: "8766"
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      SPROUT_ENV: production
+      DATABASE_URL: postgresql://sprout:${POSTGRES_PASSWORD}@postgres:5432/sprout_registry
+      REDIS_URL: redis://redis:6379
+      TOOL_EXECUTOR_URL: http://tool_executor:8767
+      SPROUT_DB_AUTO_CREATE: "true"   # create schema on first boot (no migrate step)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tool_executor:
+        condition: service_healthy
+
+  # ── Chat Backend (8765) — planner + DAG executor + SSE (PUBLIC via Caddy /chat) ─
+  chat_backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.python.prod
+      args:
+        SERVICE: chat_backend
+        MODULE: sprout_chat_backend.main:app
+        PORT: "8765"
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      SPROUT_ENV: production
+      REGISTRY_URL: http://registry_api:8766
+      SYNTHESIS_URL: http://synthesis_service:8002
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      registry_api:
+        condition: service_healthy
+
+  # ── Synthesis Service (internal only — triggered by chat_backend) ────────────
+  synthesis_service:
+    build:
+      context: .
+      dockerfile: packages/synthesis_service/Dockerfile
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      SPROUT_ENV: production
+      SPROUT_SYNTHESIS_CALLBACK_URL: http://registry_api:8766/synthesis/callback
+      SPROUT_SYNTHESIS_INTERNAL_SECRET: ${SPROUT_INTERNAL_SECRET:-}
+      SPROUT_SYNTHESIS_OPENCODE_MODEL: ${SPROUT_SYNTHESIS_OPENCODE_MODEL:-mistral/codestral-latest}
+    volumes:
+      - synthesis_logs:/app/logs
+    depends_on:
+      registry_api:
+        condition: service_healthy
+
+  # ── MCP Server (8768) — MCP bridge + OAuth 2.1 AS (PUBLIC via Caddy /mcp) ─────
+  mcp_server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.python.prod
+      args:
+        SERVICE: mcp_server
+        MODULE: sprout_mcp.main:app
+        PORT: "8768"
+    command: ["python", "-m", "sprout_mcp.main", "streamable-http"]
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      SPROUT_ENV: production
+      SPROUT_REGISTRY_URL: http://registry_api:8766
+      SPROUT_MCP_HOST: 0.0.0.0
+      SPROUT_MCP_PORT: "8768"
+      # Public OAuth issuer — must match where clients reach it (Caddy /mcp prefix).
+      SPROUT_MCP_ISSUER_URL: ${PUBLIC_BASE_URL}/mcp
+    depends_on:
+      registry_api:
+        condition: service_healthy
+
+  # ── Caddy reverse proxy — the only public entry point ────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # A hostname (e.g. api.example.com or api.203-0-113-10.sslip.io) so Caddy
+      # provisions HTTPS automatically — REQUIRED, because the Vercel frontend is
+      # served over HTTPS and browsers block http calls from an https page.
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS (a hostname) in .env.prod}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - registry_api
+      - chat_backend
+      - mcp_server
+
+volumes:
+  pgdata:
+  redisdata:
+  synthesis_logs:
+  caddy_data:
+  caddy_config:

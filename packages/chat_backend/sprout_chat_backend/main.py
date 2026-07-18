@@ -544,6 +544,49 @@ def _find_similar_tool(missing_spec: dict, existing_tools: list[dict], threshold
     return _jaccard_similar_tool(missing_spec, existing_tools, threshold)
 
 
+def _reconcile_orphan_tools(graph: dict, existing_tools: list[dict]) -> None:
+    """Promote orphan node tool references into ``missing_tools``.
+
+    The planner sometimes references an invented tool ID in a node's ``tools``
+    list but forgets to declare it under ``missing_tools``. Without this, that
+    tool is never synthesized and the agent just refuses at execution time
+    ("I don't have a tool …"). Here we scan every node's tool references and,
+    for any ID that is neither registered nor already declared missing, we
+    append a minimal missing-tool spec so synthesis actually fires.
+    """
+    registered: set[str] = set()
+    for t in existing_tools:
+        if t.get("id"):
+            registered.add(t["id"])
+        if t.get("name"):
+            registered.add(t["name"])
+
+    missing = graph.get("missing_tools", []) or []
+    declared = {m.get("id") for m in missing if isinstance(m, dict) and m.get("id")}
+
+    seen: dict[str, str] = {}
+    for node in graph.get("nodes", []):
+        for tid in list(node.get("tools", []) or []):
+            if not tid or tid in registered or tid in declared or tid in seen:
+                continue
+            seen[tid] = node.get("task") or node.get("role") or f"Tool {tid}"
+
+    for tid, desc in seen.items():
+        norm_id = tid if "." in tid else f"com.sprout.tools.{tid}"
+        missing.append({
+            "id": norm_id,
+            "description": desc,
+            "inputs": [],
+            "output": {"type": "dict", "fields": []},
+        })
+        if norm_id != tid:
+            for node in graph.get("nodes", []):
+                node["tools"] = [norm_id if x == tid else x for x in (node.get("tools") or [])]
+        logger.info("Reconciled orphan tool reference '%s' -> queued for synthesis as %s", tid, norm_id)
+
+    graph["missing_tools"] = missing
+
+
 def _filter_missing_tools(graph: dict, existing_tools: list[dict]) -> tuple[list, dict[str, str]]:
     """Filter out missing tools that already have similar existing tools.
 
@@ -790,6 +833,9 @@ async def sprout_start(
     _run_queues[run_id] = Queue()
 
     missing = _collect_missing_envs(graph, provided_env)
+
+    # Catch tools the planner referenced in a node but forgot to declare missing.
+    _reconcile_orphan_tools(graph, tools_list)
 
     # Check if any "missing" tools overlap with existing registered tools
     _filter_missing_tools(graph, tools_list)

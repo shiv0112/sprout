@@ -592,16 +592,75 @@ def _reconcile_orphan_tools(graph: dict, existing_tools: list[dict]) -> None:
     graph["missing_tools"] = missing
 
 
-def _filter_missing_tools(graph: dict, existing_tools: list[dict]) -> tuple[list, dict[str, str]]:
-    """Filter out missing tools that already have similar existing tools.
+def _llm_match_existing(spec: dict, existing_tools: list[dict], api_key: str = "") -> str | None:
+    """LLM-reasoned tool check: does an existing registered tool already do
+    EXACTLY what this requested tool needs? Returns the existing tool id to
+    reuse, or None to synthesize.
 
-    Returns (truly_missing, remap) where remap maps missing tool IDs to
-    existing tool IDs so the graph can be updated.
+    Semantic reasoning replaces fuzzy word-matching, which conflated same-domain
+    tools (e.g. 'number of people in space' vs 'ISS coordinates'). Biased toward
+    synthesis: when unsure, it returns None so the right tool gets built.
+    """
+    if not existing_tools:
+        return None
+
+    from openai import OpenAI
+
+    catalog = "\n".join(
+        f"- {t.get('id')}: {t.get('description', '')}" for t in existing_tools if t.get("id")
+    )
+    need = f"{spec.get('id')}: {spec.get('description', '')}"
+    prompt = (
+        "Decide whether a requested capability is ALREADY covered by an existing "
+        "tool. Match ONLY if an existing tool does essentially the SAME job (same "
+        "data or action). The same topic/domain is NOT enough — e.g. 'current "
+        "number of people in space' is NOT the same as 'ISS coordinates'. When "
+        "unsure, answer NONE so a new tool is built.\n\n"
+        f"EXISTING TOOLS:\n{catalog}\n\n"
+        f"REQUESTED:\n{need}\n\n"
+        "Answer with ONLY the exact existing tool id that truly matches, or the "
+        "single word NONE."
+    )
+    try:
+        providers = provider_chain(mistral_api_key=api_key, reasoning=False)
+    except Exception:
+        return None
+    for p in providers:
+        try:
+            client = OpenAI(api_key=p["api_key"], base_url=p["base_url"], timeout=30.0)
+            resp = client.chat.completions.create(
+                model=p["model"],
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=40,
+                temperature=0,
+            )
+            ans = (resp.choices[0].message.content or "").strip()
+            if not ans or ans.upper().startswith("NONE"):
+                return None
+            for t in existing_tools:
+                tid = t.get("id")
+                if tid and tid in ans:
+                    return tid
+            return None
+        except Exception as exc:
+            logger.warning("LLM tool-check via %s failed (%s); trying next provider", p.get("name"), exc)
+            continue
+    return None
+
+
+def _filter_missing_tools(graph: dict, existing_tools: list[dict], api_key: str = "") -> tuple[list, dict[str, str]]:
+    """Post-plan tool check. For each tool the planner declared missing, decide
+    — by exact-id reuse, then LLM reasoning — whether it's already covered by an
+    existing tool. Genuine matches are remapped/reused; the rest are synthesized.
+
+    Replaces fuzzy word-matching, which conflated same-domain tools and wrongly
+    skipped synthesis (e.g. space_people_count -> iss_location).
     """
     missing = graph.get("missing_tools", [])
     if not missing:
         return [], {}
 
+    registered_ids = {t.get("id") for t in existing_tools if t.get("id")}
     truly_missing: list = []
     remap: dict[str, str] = {}
 
@@ -611,18 +670,20 @@ def _filter_missing_tools(graph: dict, existing_tools: list[dict]) -> tuple[list
         spec_id = spec.get("id")
         if not spec_id:
             continue
-        match = _find_similar_tool(spec, existing_tools)
+        if spec_id in registered_ids:
+            logger.info("Tool %s already registered — reusing it, skipping synthesis", spec_id)
+            continue
+        match = _llm_match_existing(spec, existing_tools, api_key)
         if match:
-            remap[spec_id] = match["id"]
-            logger.info("Skipping synthesis for %s — remapping to existing tool %s", spec_id, match.get("id"))
+            remap[spec_id] = match
+            logger.info("LLM tool-check: %s already covered by %s — reusing, skipping synthesis", spec_id, match)
         else:
             truly_missing.append(spec)
 
     if remap:
         for node in graph.get("nodes", []):
             node["tools"] = [remap.get(tid, tid) for tid in node.get("tools", [])]
-        graph["missing_tools"] = truly_missing
-
+    graph["missing_tools"] = truly_missing
     return truly_missing, remap
 
 
@@ -842,8 +903,9 @@ async def sprout_start(
     # Catch tools the planner referenced in a node but forgot to declare missing.
     _reconcile_orphan_tools(graph, tools_list)
 
-    # Check if any "missing" tools overlap with existing registered tools
-    _filter_missing_tools(graph, tools_list)
+    # LLM-reasoned tool check: reuse an existing tool only if it truly matches;
+    # otherwise keep it for synthesis.
+    _filter_missing_tools(graph, tools_list, api_key=api_key)
 
     # Trigger synthesis only for truly missing tools
     synthesis_jobs = _synthesize_missing_tools(graph.get("missing_tools", []), api_key=api_key)

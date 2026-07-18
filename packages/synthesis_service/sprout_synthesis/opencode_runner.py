@@ -123,6 +123,7 @@ async def run_opencode(
         # opencode_timeout (default 600s) to guard against runaway processes.
         import time as _time
         opencode_error: str | None = None
+        tail: list[str] = []   # recent stdout lines, for diagnosing silent exits
         line_timeout = 120
         deadline = _time.monotonic() + settings.opencode_timeout
         while True:
@@ -142,6 +143,8 @@ async def run_opencode(
                 continue
 
             logger.debug("OpenCode stdout: %s", line_str[:200])
+            tail.append(line_str)
+            del tail[:-12]
 
             # Forward to event callback
             if on_event is not None:
@@ -189,9 +192,13 @@ async def run_opencode(
         raise OpenCodeError("OpenCode CLI timed out") from None
 
     if proc.returncode != 0:
-        logger.error("OpenCode CLI exited with code %d\nstderr: %s", proc.returncode, stderr_str[:2000])
+        detail = stderr_str.strip() or (" | ".join(tail[-5:]) if tail else "(no output on stdout/stderr)")
+        logger.error(
+            "OpenCode CLI exited with code %d\nstderr: %s\nlast stdout: %s",
+            proc.returncode, stderr_str[:2000], " | ".join(tail[-8:]),
+        )
         raise OpenCodeError(
-            f"OpenCode CLI exited with code {proc.returncode}: {stderr_str[:500]}"
+            f"OpenCode CLI exited with code {proc.returncode}: {detail[:800]}"
         )
 
     if opencode_error:

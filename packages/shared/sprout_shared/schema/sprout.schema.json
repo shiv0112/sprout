@@ -5,7 +5,7 @@
   "description": "Schema for a Sprout tool specification file (spec.yaml). This is the contract that the synthesis service must produce and SproutLoader validates before registering a tool.",
   "type": "object",
   "required": ["sprout_version", "tool", "interface", "implementation"],
-  "additionalProperties": false,
+  "additionalProperties": true,
 
   "properties": {
 
@@ -19,7 +19,7 @@
       "type": "object",
       "description": "Identity and ownership of the tool.",
       "required": ["id", "name", "version", "description"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "id": {
           "type": "string",
@@ -50,7 +50,7 @@
       "type": "object",
       "description": "The tool's input/output contract. This is what the LLM sees.",
       "required": ["inputs", "outputs"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
 
         "inputs": {
@@ -59,7 +59,7 @@
           "items": {
             "type": "object",
             "required": ["name", "type"],
-            "additionalProperties": false,
+            "additionalProperties": true,
             "properties": {
               "name":        { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
               "type":        { "type": "string", "enum": ["string", "integer", "number", "boolean", "array", "object"] },
@@ -77,7 +77,7 @@
           "items": {
             "type": "object",
             "required": ["name", "type"],
-            "additionalProperties": false,
+            "additionalProperties": true,
             "properties": {
               "name":        { "type": "string" },
               "type":        { "type": "string" },
@@ -92,7 +92,7 @@
       "type": "object",
       "description": "Where the code lives and how to run it.",
       "required": ["runtime", "entrypoint"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "runtime":      { "type": "string", "description": "e.g. python3.10" },
         "entrypoint":   { "type": "string", "pattern": "\\.py$", "description": "Filename of the Python implementation, e.g. weather.py" },
@@ -106,7 +106,7 @@
         },
         "execution": {
           "type": "object",
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "timeout": { "type": "string", "description": "e.g. 5000ms" },
             "retries": { "type": "integer", "minimum": 0 },
@@ -128,14 +128,14 @@
     "testing": {
       "type": "object",
       "description": "Test fixtures run by SproutLoader before registration. The synthesis service must pass all fixtures before publishing.",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "fixtures": {
           "type": "array",
           "items": {
             "type": "object",
             "required": ["input", "expected_output_contains"],
-            "additionalProperties": false,
+            "additionalProperties": true,
             "properties": {
               "input": {
                 "type": "object",

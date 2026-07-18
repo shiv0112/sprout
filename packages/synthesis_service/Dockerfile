@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Install the shared package with its own runtime dependencies.
 COPY packages/shared/pyproject.toml /tmp/sprout-shared/pyproject.toml
+COPY packages/shared/README.md packages/shared/LICENSE /tmp/sprout-shared/
 COPY packages/shared/sprout_shared/ /tmp/sprout-shared/sprout_shared/
 RUN pip install --no-cache-dir /tmp/sprout-shared
 

@@ -108,6 +108,7 @@ services:
       SPROUT_ENV: production
       REGISTRY_URL: http://registry_api:8766
       SYNTHESIS_URL: http://synthesis_service:8002
+      SPROUT_CALLBACK_URL: http://registry_api:8766/synthesis/callback
       REDIS_URL: redis://redis:6379
     depends_on:
       registry_api:

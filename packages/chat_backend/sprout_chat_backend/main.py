@@ -526,20 +526,25 @@ def _find_similar_tool(missing_spec: dict, existing_tools: list[dict], threshold
         match = _route_intent_via_registry(intent, _ROUTER_CONFIDENCE_GATE)
         if match:
             tool_id = match.get("tool_id")
-            logger.info(
-                "Router match: %s for missing '%s' (confidence=%.2f)",
-                tool_id, missing_spec.get("id"), float(match.get("confidence", 0.0)),
-            )
-            for tool in existing_tools:
-                if tool.get("id") == tool_id:
-                    return tool
-            # Router knew about a tool the local list doesn't have — surface
-            # the router's view so the remap can still happen.
-            return {
+            candidate = next((t for t in existing_tools if t.get("id") == tool_id), None) or {
                 "id": tool_id,
                 "name": match.get("name", ""),
                 "description": match.get("description", ""),
             }
+            # The router's confidence is normalized to its own top hit, so it can
+            # report ~1.00 for an unrelated tool (e.g. iss_location ->
+            # weather_forecast). Confirm the pick with a lexical-overlap check
+            # before skipping synthesis — when in doubt, synthesize.
+            if _jaccard_similar_tool(missing_spec, [candidate], threshold):
+                logger.info(
+                    "Router match %s for missing '%s' confirmed by lexical overlap",
+                    tool_id, missing_spec.get("id"),
+                )
+                return candidate
+            logger.info(
+                "Router match %s for missing '%s' rejected (weak overlap) — will synthesize",
+                tool_id, missing_spec.get("id"),
+            )
 
     return _jaccard_similar_tool(missing_spec, existing_tools, threshold)
 

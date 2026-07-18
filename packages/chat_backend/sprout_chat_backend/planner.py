@@ -387,11 +387,13 @@ class SproutPlanner:
         for node in nodes:
             if "tools" not in node:
                 node["tools"] = []
-            valid_tools = [tid for tid in node["tools"] if tid in registered_ids]
             invalid_tools = [tid for tid in node["tools"] if tid not in registered_ids]
             if invalid_tools:
-                logger.warning("Planner referenced non-existent tools: %s — dropping them", invalid_tools)
-            node["tools"] = valid_tools
+                # Keep unregistered references instead of dropping them — a tool
+                # the planner asked for that doesn't exist yet is a synthesis
+                # candidate. The chat backend reconciles these into missing_tools
+                # (see _reconcile_orphan_tools) so synthesis fires.
+                logger.info("Planner referenced unregistered tools %s — keeping for synthesis", invalid_tools)
 
         valid_edges = [
             e for e in graph.get("edges", [])

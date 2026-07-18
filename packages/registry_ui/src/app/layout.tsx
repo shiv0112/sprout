@@ -1,12 +1,12 @@
 import type { Metadata } from "next"
-import { ClerkProvider, Show, UserButton, SignInButton } from "@clerk/nextjs"
-import { dark } from "@clerk/themes"
+import { Show, UserButton, SignInButton } from "@clerk/nextjs"
 import { Figtree, Geist_Mono } from "next/font/google"
 import Link from "next/link"
 import { Sprout } from "lucide-react"
 
 import { NavLinks } from "@/app/_components/nav-links"
 import { Providers } from "@/app/_components/providers"
+import { ClerkAppearanceProvider } from "@/app/_components/clerk-appearance-provider"
 import { ThemeToggle } from "@/app/_components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import "./globals.css"
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-full bg-background text-foreground">
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <ClerkProvider appearance={{ baseTheme: dark }}>
+        <ClerkAppearanceProvider>
         <Providers>
           <div className="relative flex min-h-full flex-col overflow-x-clip">
             <div className="pointer-events-none absolute inset-0 -z-10">
@@ -84,7 +84,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <div className="rounded-full border border-border/70 p-[2px] transition-colors duration-300 hover:border-border">
                       <UserButton
                         appearance={{
-                          baseTheme: dark,
                           elements: { avatarBox: "h-7 w-7" },
                         }}
                       />
@@ -111,7 +110,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </footer>
           </div>
         </Providers>
-        </ClerkProvider>
+        </ClerkAppearanceProvider>
       </body>
     </html>
   )

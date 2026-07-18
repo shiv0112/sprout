@@ -16,7 +16,6 @@ import {
   ArrowUpRight,
   Check,
   Cpu,
-  Sprout,
   Lock,
   Network,
   Package,
@@ -240,44 +239,6 @@ function Hero({ toolCount }: { toolCount: number }) {
             </Link>
           </Magnetic>
         </motion.div>
-      </motion.div>
-
-      {/* Animated orbit mark */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1, delay: 0.2 }}
-        className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2"
-      >
-        <div className="relative size-24">
-          {/* Outer orbit */}
-          <motion.svg
-            viewBox="0 0 100 100"
-            className="absolute inset-0"
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 18, ease: "linear" }}
-          >
-            <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(226 61% 60% / 0.18)" strokeWidth="0.5" strokeDasharray="2 6" />
-            <circle cx="96" cy="50" r="2" fill="hsl(226 61% 60%)" />
-          </motion.svg>
-          {/* Inner counter-orbit */}
-          <motion.svg
-            viewBox="0 0 100 100"
-            className="absolute inset-2"
-            animate={{ rotate: -360 }}
-            transition={{ repeat: Infinity, duration: 11, ease: "linear" }}
-          >
-            <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(226 61% 60% / 0.28)" strokeWidth="0.4" strokeDasharray="1 4" />
-            <circle cx="50" cy="10" r="1.6" fill="hsl(226 61% 60% / 0.85)" />
-          </motion.svg>
-          {/* Core */}
-          <div className="absolute inset-0 m-auto flex size-12 items-center justify-center">
-            <span className="absolute -inset-3 animate-pulse rounded-2xl bg-sprout/25 blur-2xl" />
-            <div className="relative flex size-12 items-center justify-center rounded-2xl border border-sprout/30 bg-gradient-to-br from-sprout/30 to-sprout/5 backdrop-blur">
-              <Sprout className="size-5 text-sprout" />
-            </div>
-          </div>
-        </div>
       </motion.div>
 
     </section>

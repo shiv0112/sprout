@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -116,6 +117,55 @@ def _validate_impl(impl_path: Path, tool_name: str) -> str | None:
     return None
 
 
+def _run_fixtures(workspace: Path, tool_name: str) -> str | None:
+    """Run the spec's own test fixtures against the impl — the SAME check the
+    registry enforces before registering. Calls the function with each fixture's
+    `input` and verifies the result is a dict containing every key in
+    `expected_output_contains`. Returns an error string on the first failure, or
+    None if all fixtures pass (or there are none / a network fixture times out).
+
+    Running this locally lets the fix loop reconcile impl<->spec (e.g. the impl
+    returning `result` while the spec's fixture expects `kelvin`) BEFORE the tool
+    is sent for registration, instead of getting a 422 there.
+    """
+    runner = (
+        "import sys, yaml\n"
+        f"from impl import {tool_name} as _fn\n"
+        "spec = yaml.safe_load(open('spec.yaml')) or {}\n"
+        "fixtures = ((spec.get('testing') or {}).get('fixtures')) or []\n"
+        "for i, fx in enumerate(fixtures, 1):\n"
+        "    inp = fx.get('input') or {}\n"
+        "    exp = fx.get('expected_output_contains') or []\n"
+        "    try:\n"
+        "        out = _fn(**inp)\n"
+        "    except Exception as e:\n"
+        "        print('fixture %d: call raised %s: %s' % (i, type(e).__name__, e)); sys.exit(1)\n"
+        "    if not isinstance(out, dict):\n"
+        "        print('fixture %d: expected a dict result, got %s' % (i, type(out).__name__)); sys.exit(1)\n"
+        "    missing = [k for k in exp if k not in out]\n"
+        "    if missing:\n"
+        "        print('fixture %d: output missing keys %s; impl returned %s -- make impl and spec agree' % (i, missing, list(out.keys()))); sys.exit(1)\n"
+        "print('FIXTURES OK')\n"
+    )
+    # Drop any bytecode cached from a previous fix attempt so we test the
+    # freshly written impl.py, not a stale .pyc.
+    shutil.rmtree(workspace / "__pycache__", ignore_errors=True)
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", runner],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            return (result.stdout.strip() or result.stderr.strip()[-400:] or "fixture test failed")
+    except subprocess.TimeoutExpired:
+        # Network-bound fixtures can be slow/flaky; don't fail synthesis on that.
+        return None
+    return None
+
+
 def _collect_errors(workspace: Path, tool_name: str) -> list[str]:
     """Run all validations, return list of error strings (empty = all passed)."""
     errors: list[str] = []
@@ -136,6 +186,12 @@ def _collect_errors(workspace: Path, tool_name: str) -> list[str]:
         impl_err = _validate_impl(impl_path, tool_name)
         if impl_err:
             errors.append(f"impl.py validation: {impl_err}")
+
+    # Only run fixtures once spec + impl are structurally sound.
+    if not errors:
+        fixture_err = _run_fixtures(workspace, tool_name)
+        if fixture_err:
+            errors.append(f"fixture test: {fixture_err}")
 
     return errors
 
